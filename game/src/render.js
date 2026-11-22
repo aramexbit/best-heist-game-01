@@ -11,6 +11,16 @@
 //   pectoral fins, gill slits, two eyes near the snout), top-down diver (orange
 //   wetsuit, arms forward, silver tank, yellow flippers, bubble trail), seabed
 //   scene (golden shafts, swaying kelp, glowing open chest, branching corals).
+// - Polish pass: no sand anywhere — the seabed is dark water with caustics,
+//   pebbles and depth patches. Walls are living coral rock (staghorn, brain,
+//   tube and fan corals, varied per wall), never flat boxes. The exit is a
+//   spinning whirlpool portal to another dimension, not a boat.
+// - Ruins reference pass: stone-block walls with visible sides and depth
+//   (block courses, mortar joints, extruded side faces) with coral growing on
+//   them; a detailed stone-tiled floor with cracks, starfish and shells;
+//   side-profile shark and diver; wall-mounted box cameras with red cones; a
+//   glowing chest; barrel / anchor / starfish props; top HUD bar, minimap
+//   and a control hint bar — all drawn in code, no image files.
 //
 // The five things the judge must read in one frame stay loud: the seabed the diver
 // crosses, sharks with red sense cones, sonar cameras (dome cameras on seabed
@@ -80,7 +90,10 @@ export function createRenderer(canvas) {
     offsetY = (canvas.height - FIELD.height * scale) / 2;
   }
 
-  /** The seabed: water gradient, sand with shells, light shafts and caustics. */
+  /** The seabed: dark water, depth patches, pebbles, light shafts and caustics.
+   * No sand — this is deep water, so the floor is rock and shadow, and the
+   * water stays dark navy so the diver, the sharks, the loot and the cones
+   * all pop off it at a glance. */
   function drawWater(world) {
     const theme = THEMES[world.state.level.theme] || THEMES.reef;
     const grad = ctx.createLinearGradient(0, 0, 0, FIELD.height);
@@ -89,49 +102,79 @@ export function createRenderer(canvas) {
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, FIELD.width, FIELD.height);
 
-    // Sand floor: warm sand PATCHES on the dark water, never a full beach —
-    // the water stays dark navy so the diver, the sharks, the loot and the
-    // cones all pop off it at a glance.
-    const sandPatches = [
-      [190, 150, 250, 85], [1090, 170, 230, 95], [640, 400, 290, 115],
-      [230, 590, 270, 95], [1050, 600, 250, 100], [640, 120, 210, 55],
+    // Depth patches: large soft ellipses of darker water, so the seabed reads
+    // as uneven rock instead of a flat pool.
+    const depthPatches = [
+      [190, 150, 250, 85, 0.10], [1090, 170, 230, 95, 0.08], [640, 400, 290, 115, 0.12],
+      [230, 590, 270, 95, 0.09], [1050, 600, 250, 100, 0.10], [640, 120, 210, 55, 0.07],
     ];
-    for (const [px, py, rx, ry] of sandPatches) {
-      ctx.fillStyle = theme.sand;
+    for (const [px, py, rx, ry, alpha] of depthPatches) {
+      ctx.fillStyle = 'rgba(1, 8, 16, ' + alpha + ')';
       ctx.beginPath();
       ctx.ellipse(px, py, rx, ry, 0, 0, Math.PI * 2);
       ctx.fill();
     }
-    ctx.fillStyle = theme.sandDark;
-    for (let i = 0; i < 90; i += 1) {
-      const patch = sandPatches[i % sandPatches.length];
-      const a = (i * 2.399) % (Math.PI * 2);
-      const r = 0.85 * Math.sqrt((i * 0.37) % 1);
-      const sx = patch[0] + Math.cos(a) * patch[2] * r;
-      const sy = patch[1] + Math.sin(a) * patch[3] * r;
+    // Pebbles: small grey-blue stones scattered over the whole seabed.
+    for (let i = 0; i < 44; i += 1) {
+      const px = (i * 173 + 41) % FIELD.width;
+      const py = (i * 97 + 53) % FIELD.height;
+      ctx.fillStyle = i % 3 === 0 ? theme.pebble : theme.pebbleDark;
+      ctx.globalAlpha = 0.5 + (i % 4) * 0.12;
       ctx.beginPath();
-      ctx.arc(sx, sy, 1.5 + (i % 3), 0, Math.PI * 2);
+      ctx.ellipse(px, py, 2 + (i % 4), 1.5 + (i % 3), (i * 0.7) % Math.PI, 0, Math.PI * 2);
       ctx.fill();
     }
-    // Shells: little pale arcs scattered on the sand patches.
-    ctx.strokeStyle = 'rgba(240, 230, 210, 0.75)';
+    ctx.globalAlpha = 1;
+    // Shells: little pale arcs scattered on the seabed.
+    ctx.strokeStyle = 'rgba(240, 230, 210, 0.6)';
     ctx.lineWidth = 2;
     for (let i = 0; i < 14; i += 1) {
-      const patch = sandPatches[(i * 2 + 1) % sandPatches.length];
-      const a = (i * 2.399 + 1) % (Math.PI * 2);
-      const r = 0.8 * Math.sqrt((i * 0.53) % 1);
-      const sx = patch[0] + Math.cos(a) * patch[2] * r;
-      const sy = patch[1] + Math.sin(a) * patch[3] * r;
+      const sx = (i * 211 + 90) % FIELD.width;
+      const sy = (i * 139 + 70) % FIELD.height;
       ctx.beginPath();
       ctx.arc(sx, sy, 5 + (i % 3), Math.PI, Math.PI * 2);
       ctx.stroke();
     }
 
-    // Caustics: wavy nets of light crawling over the sand.
+    // Stone floor: faint large tile seams and cracks, so the seabed reads as
+    // old paved ruins instead of a flat pool. No sand — the tiles are dark
+    // rock, lit only by the caustics and shafts above.
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.28)';
+    ctx.lineWidth = 2;
+    for (let gx = 0; gx <= FIELD.width; gx += 240) {
+      const lean = (gx / 240) % 2 === 0 ? 0 : 40;
+      ctx.beginPath();
+      ctx.moveTo(gx + lean, 0);
+      ctx.lineTo(gx + 40 - lean, FIELD.height);
+      ctx.stroke();
+    }
+    for (let gy = 0; gy <= FIELD.height; gy += 288) {
+      ctx.beginPath();
+      ctx.moveTo(0, gy);
+      ctx.lineTo(FIELD.width, gy + 24);
+      ctx.stroke();
+    }
+    // Cracks: short jagged dark lines scattered on the tiles.
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 4; i += 1) {
+      let cx0 = (i * 263 + 120) % FIELD.width;
+      let cy0 = (i * 179 + 80) % FIELD.height;
+      ctx.beginPath();
+      ctx.moveTo(cx0, cy0);
+      for (let s = 0; s < 3; s += 1) {
+        cx0 += 12 + ((i + s) % 3) * 8;
+        cy0 += ((i * 3 + s * 5) % 11) - 5;
+        ctx.lineTo(cx0, cy0);
+      }
+      ctx.stroke();
+    }
+
+    // Caustics: wavy nets of light crawling over the seabed.
     ctx.strokeStyle = 'rgba(255, 255, 220, 0.10)';
     ctx.lineWidth = 2;
-    for (let i = 0; i < 7; i += 1) {
-      const y = 90 + i * 88;
+    for (let i = 0; i < 5; i += 1) {
+      const y = 120 + i * 120;
       const drift = Math.sin(world.state.elapsed * 0.6 + i * 1.3) * 26;
       ctx.beginPath();
       ctx.moveTo(0, y);
@@ -181,7 +224,7 @@ export function createRenderer(canvas) {
       ctx.globalAlpha = 1;
     }
 
-    // Ambient bubble streams rising from the sand.
+    // Ambient bubble streams rising from vents in the seabed.
     ctx.strokeStyle = PALETTE.bubble;
     ctx.lineWidth = 1.5;
     for (let v = 0; v < 3; v += 1) {
@@ -264,76 +307,412 @@ export function createRenderer(canvas) {
     }
   }
 
-  /** The boat: a wooden hull with a mast and a rope ladder rising from the
-   * escape zone up to the surface, plus a green glow while it can be boarded. */
-  function drawBoat(world) {
+  /** The whirlpool: the escape is a spinning portal to another dimension, not
+   * a boat. A cyan-violet spiral churns inside the exit zone — three arms
+   * winding into a dark hole, a rotating dashed ring, and bubbles spiralling
+   * inward — glowing brighter once the diver carries treasure. The zone's
+   * position and size are unchanged; only what the player sees is new. */
+  function drawWhirlpool(world) {
     const state = world.state;
     const exit = state.level.exit;
     const ready = state.lootTaken > 0;
-    ctx.fillStyle = ready ? 'rgba(61, 220, 132, 0.20)' : 'rgba(61, 220, 132, 0.08)';
-    ctx.fillRect(exit.x, exit.y, exit.w, exit.h);
+    const cx = exit.x + exit.w / 2;
+    const cy = exit.y + exit.h / 2;
+    const spin = state.elapsed * 1.6;
+    // Outer glow: cyan-violet, breathing with the spin, brighter when ready.
+    const glow = ctx.createRadialGradient(cx, cy, 4, cx, cy, 78);
+    glow.addColorStop(0, ready ? 'rgba(126, 231, 255, 0.55)' : 'rgba(126, 231, 255, 0.30)');
+    glow.addColorStop(0.55, ready ? 'rgba(179, 136, 255, 0.30)' : 'rgba(179, 136, 255, 0.16)');
+    glow.addColorStop(1, 'rgba(91, 75, 196, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 78, 0, Math.PI * 2);
+    ctx.fill();
+    // Zone edge: a dashed cyan ring spinning with the water.
     ctx.strokeStyle = PALETTE.exit;
     ctx.lineWidth = 2;
-    ctx.strokeRect(exit.x, exit.y, exit.w, exit.h);
-    // Hull, top-down: a wooden rowboat, pointed bow up, plank seams, benches,
-    // white wake foam, and a rope ladder hanging from the stern into the water
-    // — the reference boat, redrawn in code.
-    const cx = exit.x + exit.w / 2;
-    const top = exit.y + 8;
-    const bottom = exit.y + exit.h - 26;
-    const half = 20;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-    for (let i = 0; i < 8; i += 1) {
-      const a = (i / 8) * Math.PI * 2;
+    ctx.setLineDash([10, 7]);
+    ctx.lineDashOffset = -state.elapsed * 36;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 52, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.lineDashOffset = 0;
+    // Three spiral arms winding into the centre, drawn as tapering dotted
+    // trails: each dot smaller and brighter the deeper it goes.
+    for (let arm = 0; arm < 3; arm += 1) {
+      const base = spin + (arm * Math.PI * 2) / 3;
+      // A faint continuous swirl line under the dots, so the arms read as
+      // moving water instead of a dotted ring.
+      ctx.strokeStyle = 'rgba(126, 231, 255, 0.35)';
+      ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(cx + Math.cos(a) * (half + 6), (top + bottom) / 2 + Math.sin(a) * ((bottom - top) / 2 + 6), 3 + (i % 3), 0, Math.PI * 2);
+      for (let s = 0; s <= 14; s += 1) {
+        const t = s / 14;
+        const ang = base + t * Math.PI * 3.2;
+        const r = 48 * (1 - t * 0.86);
+        const px = cx + Math.cos(ang) * r;
+        const py = cy + Math.sin(ang) * r * 0.92;
+        if (s === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+      for (let s = 0; s <= 14; s += 1) {
+        const t = s / 14;
+        const ang = base + t * Math.PI * 3.2;
+        const r = 48 * (1 - t * 0.86);
+        const px = cx + Math.cos(ang) * r;
+        const py = cy + Math.sin(ang) * r * 0.92;
+        ctx.fillStyle = t < 0.5 ? 'rgba(126, 231, 255, 0.9)' : 'rgba(179, 136, 255, 0.9)';
+        ctx.beginPath();
+        ctx.arc(px, py, 5.5 - t * 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    // The hole: a dark violet pit with a bright cyan rim.
+    ctx.fillStyle = '#12082e';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 13, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = PALETTE.whirl;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 13 + Math.sin(state.elapsed * 3) * 1.5, 0, Math.PI * 2);
+    ctx.stroke();
+    // Bubbles and motes spiralling inward, sucked toward the portal.
+    for (let i = 0; i < 10; i += 1) {
+      const ang = i * 0.63 + state.elapsed * (1.4 + (i % 3) * 0.35);
+      const r = 50 - ((state.elapsed * 9 + i * 7) % 38);
+      const px = cx + Math.cos(ang) * r;
+      const py = cy + Math.sin(ang) * r * 0.92;
+      ctx.fillStyle = 'rgba(200, 235, 245, 0.75)';
+      ctx.beginPath();
+      ctx.arc(px, py, 1.5 + (i % 3) * 0.7, 0, Math.PI * 2);
       ctx.fill();
     }
-    ctx.fillStyle = '#a8763e';
-    ctx.strokeStyle = '#4a2f16';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(cx, top);
-    ctx.quadraticCurveTo(cx + half, top + 18, cx + half, top + 46);
-    ctx.lineTo(cx + half, bottom - 14);
-    ctx.quadraticCurveTo(cx + half, bottom, cx, bottom);
-    ctx.quadraticCurveTo(cx - half, bottom, cx - half, bottom - 14);
-    ctx.lineTo(cx - half, top + 46);
-    ctx.quadraticCurveTo(cx - half, top + 18, cx, top);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(74, 47, 22, 0.7)';
-    ctx.lineWidth = 1.5;
-    for (let p = 1; p <= 3; p += 1) {
-      const py = top + 20 + p * 18;
-      ctx.beginPath();
-      ctx.moveTo(cx - half + 4, py);
-      ctx.lineTo(cx + half - 4, py);
-      ctx.stroke();
-    }
-    ctx.fillStyle = '#8a5f30';
-    ctx.fillRect(cx - half + 3, top + 34, half * 2 - 6, 7);
-    ctx.fillRect(cx - half + 3, bottom - 30, half * 2 - 6, 7);
-    // Rope ladder from the stern down into the water below the zone.
-    ctx.strokeStyle = '#d8c49a';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(cx - 7, bottom);
-    ctx.lineTo(cx - 7, bottom + 32);
-    ctx.moveTo(cx + 7, bottom);
-    ctx.lineTo(cx + 7, bottom + 32);
-    ctx.stroke();
-    for (let y = bottom + 10; y < bottom + 30; y += 11) {
-      ctx.beginPath();
-      ctx.moveTo(cx - 7, y);
-      ctx.lineTo(cx + 7, y);
-      ctx.stroke();
-    }
-    ctx.fillStyle = PALETTE.text;
-    ctx.font = 'bold 13px ' + FONT;
+    // Label, on the zone's bottom edge.
+    ctx.fillStyle = PALETTE.whirl;
+    ctx.font = 'bold 12px ' + FONT;
     ctx.textAlign = 'center';
-    ctx.fillText('BOAT', exit.x + exit.w / 2, exit.y + exit.h - 6);
+    ctx.fillText('WHIRLPOOL', cx, exit.y + exit.h - 6);
+    ctx.textAlign = 'left';
+  }
+
+  /** A wall as ruined stone blocks: the same collision rectangle, but the
+   * flat box is gone. Block courses with mortar joints, an extruded darker
+   * side face on the bottom and right for depth, a lit top edge, and a coral
+   * colony growing on it — staghorn branches, brain mounds, tube clusters
+   * or sea fans, picked by wall index so every wall differs. Thin border
+   * walls become rocky ridges with bumps and sprigs. */
+  function drawStoneWall(world, wall, index) {
+    const theme = THEMES[world.state.level.theme] || THEMES.reef;
+    const corals = theme.corals || [theme.coral, theme.coral2];
+    const thin = Math.min(wall.w, wall.h) <= 24;
+    // Drop shadow below, offset down-right: the wall floats over the floor.
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.fillRect(wall.x + 8, wall.y + wall.h + 7, wall.w, 5);
+    ctx.fillRect(wall.x + wall.w + 7, wall.y + 8, 5, wall.h);
+    // Extruded side faces: a darker side shows on the bottom and right,
+    // so the block wall reads as a solid ruin with depth, not a flat tile.
+    ctx.fillStyle = theme.stoneSide;
+    ctx.fillRect(wall.x + 6, wall.y + wall.h, wall.w, 6);
+    ctx.fillRect(wall.x + wall.w, wall.y + 6, 6, wall.h);
+    // Front face: stone blocks.
+    ctx.fillStyle = theme.stoneFace;
+    ctx.fillRect(wall.x, wall.y, wall.w, wall.h);
+    // Block courses: horizontal mortar joints every 16px, vertical joints
+    // staggered half a block per course — the ruined-wall look.
+    ctx.strokeStyle = theme.stoneMortar;
+    ctx.lineWidth = 1.5;
+    const courseH = 16;
+    for (let cy = wall.y + courseH; cy < wall.y + wall.h; cy += courseH) {
+      ctx.beginPath();
+      ctx.moveTo(wall.x, cy);
+      ctx.lineTo(wall.x + wall.w, cy);
+      ctx.stroke();
+    }
+    for (let cy = wall.y; cy < wall.y + wall.h; cy += courseH) {
+      const row = Math.floor((cy - wall.y) / courseH);
+      const off = row % 2 === 0 ? 0 : 24;
+      for (let jx = wall.x + 36 + off; jx < wall.x + wall.w - 6; jx += 48) {
+        ctx.beginPath();
+        ctx.moveTo(jx, cy);
+        ctx.lineTo(jx, Math.min(cy + courseH, wall.y + wall.h));
+        ctx.stroke();
+      }
+    }
+    // Lit top edge, so the wall reads lit from above.
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+    ctx.fillRect(wall.x, wall.y, wall.w, 2);
+    ctx.strokeStyle = theme.rockEdge;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(wall.x, wall.y, wall.w, wall.h);
+    // Bumps along the top edge break the straight box line.
+    ctx.fillStyle = theme.rockTop;
+    const bumpStep = thin ? 46 : 34;
+    const bumps = Math.max(1, Math.floor(wall.w / bumpStep));
+    for (let b = 0; b < bumps; b += 1) {
+      const bx = wall.x + 14 + b * bumpStep + ((index * 7 + b * 3) % 10);
+      if (bx > wall.x + wall.w - 6) continue;
+      ctx.beginPath();
+      ctx.arc(bx, wall.y + 2, 6 + ((index + b) % 3) * 2, Math.PI, 0);
+      ctx.fill();
+    }
+    // Smaller bumps along the bottom edge, so no side stays a straight line.
+    ctx.fillStyle = theme.rockShade;
+    for (let b = 0; b < bumps; b += 1) {
+      const bx = wall.x + 22 + b * bumpStep + ((index * 5 + b * 7) % 12);
+      if (bx > wall.x + wall.w - 6) continue;
+      ctx.beginPath();
+      ctx.arc(bx, wall.y + wall.h - 1, 4 + ((index + b * 2) % 3), 0, Math.PI);
+      ctx.fill();
+    }
+    // Dark speckle pits across the rock face.
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+    const pits = Math.floor((wall.w * wall.h) / 2600);
+    for (let p = 0; p < pits; p += 1) {
+      const px = wall.x + 8 + ((p * 53 + index * 29) % Math.max(1, wall.w - 16));
+      const py = wall.y + 10 + ((p * 37 + index * 17) % Math.max(1, wall.h - 18));
+      ctx.beginPath();
+      ctx.arc(px, py, 1.5 + (p % 2), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if (thin) {
+      // Rocky ridge: small coral sprigs along the length, nothing more.
+      for (let s = 0; s < Math.floor(wall.w / 120); s += 1) {
+        const cx = wall.x + 60 + s * 120 + (index % 3) * 17;
+        const cy = wall.y + wall.h / 2;
+        const c = corals[(index + s) % corals.length];
+        ctx.strokeStyle = c;
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(cx, cy + 5);
+        ctx.lineTo(cx - 3, cy - 3);
+        ctx.lineTo(cx - 5, cy - 8);
+        ctx.moveTo(cx - 3, cy - 3);
+        ctx.lineTo(cx - 1, cy - 9);
+        ctx.moveTo(cx, cy + 5);
+        ctx.lineTo(cx + 3, cy - 4);
+        ctx.lineTo(cx + 5, cy - 9);
+        ctx.stroke();
+        ctx.lineCap = 'butt';
+      }
+      return;
+    }
+    // Coral colonies on the rock face: one per ~70px of the long side.
+    const longSide = Math.max(wall.w, wall.h);
+    const colonies = Math.max(1, Math.floor(longSide / 70));
+    for (let c = 0; c < colonies; c += 1) {
+      const t = colonies === 1 ? 0.5 : (c + 0.5) / colonies;
+      const cx = wall.w >= wall.h ? wall.x + wall.w * t : wall.x + wall.w / 2;
+      const cy = wall.w >= wall.h ? wall.y + wall.h / 2 : wall.y + wall.h * t;
+      const type = (index + c) % 4;
+      const col = corals[(index + c) % corals.length];
+      const col2 = corals[(index + c + 1) % corals.length];
+      if (type === 0) {
+        // Staghorn: three forked branches with bright tips.
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        for (let a = 0; a < 3; a += 1) {
+          const ang = -Math.PI / 2 + (a - 1) * 0.55 + (((index + c + a) % 3) - 1) * 0.12;
+          const len = 14 + ((index * 5 + c * 3 + a * 7) % 10);
+          const mx = cx + Math.cos(ang) * len * 0.55;
+          const my = cy + Math.sin(ang) * len * 0.55;
+          const tx = cx + Math.cos(ang) * len;
+          const ty = cy + Math.sin(ang) * len;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy + 4);
+          ctx.lineTo(mx, my);
+          ctx.lineTo(tx, ty);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(mx, my);
+          ctx.lineTo(mx + Math.cos(ang + 0.5) * 7, my + Math.sin(ang + 0.5) * 7);
+          ctx.stroke();
+          ctx.fillStyle = col2;
+          ctx.beginPath();
+          ctx.arc(tx, ty, 2.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.lineCap = 'butt';
+      } else if (type === 1) {
+        // Brain coral: a rounded mound with groove rings.
+        const r = 13 + ((index + c) % 3) * 2;
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = col2;
+        ctx.lineWidth = 1.5;
+        for (let g = 1; g <= 3; g += 1) {
+          ctx.beginPath();
+          ctx.arc(cx, cy, (r * g) / 3.5, 0.3, Math.PI * 2 - 0.3);
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.55, 0.6, Math.PI - 0.6);
+        ctx.stroke();
+        // Pale highlight on the mound's lit side, for volume.
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.8, Math.PI * 1.1, Math.PI * 1.5);
+        ctx.stroke();
+      } else if (type === 2) {
+        // Tube coral: a cluster of upright tubes with dark mouths.
+        for (let tb = 0; tb < 5; tb += 1) {
+          const tx = cx - 14 + tb * 7 + (((index + c + tb) % 3) - 1) * 2;
+          const th = 12 + ((index * 3 + c * 2 + tb * 5) % 10);
+          ctx.fillStyle = col;
+          roundRect(ctx, tx - 3, cy - th, 6, th + 4, 3);
+          ctx.fill();
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+          ctx.beginPath();
+          ctx.ellipse(tx, cy - th + 2, 2.5, 1.5, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else {
+        // Sea fan: ribs fanning up from one base point, joined by arcs.
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 2;
+        for (let a = -2; a <= 2; a += 1) {
+          const ang = -Math.PI / 2 + a * 0.35;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy + 6);
+          ctx.quadraticCurveTo(cx + Math.cos(ang) * 10, cy + Math.sin(ang) * 10 - 4, cx + Math.cos(ang) * 20, cy + Math.sin(ang) * 20);
+          ctx.stroke();
+        }
+        ctx.strokeStyle = col2;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(cx, cy + 6, 20, -Math.PI / 2 - 0.7, -Math.PI / 2 + 0.7);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy + 6, 13, -Math.PI / 2 - 0.7, -Math.PI / 2 + 0.7);
+        ctx.stroke();
+      }
+    }
+  }
+
+  /** Floor props: barrels, an anchor, starfish, coral tufts and shells
+   * scattered on the seabed — the ruins' clutter, drawn in code. Candidates
+   * are fixed and deterministic; any that would land inside a wall, a kelp
+   * bed, the exit or on top of loot or a sonar is skipped, so props never
+   * hide a mechanic. */
+  function drawProps(world) {
+    const level = world.state.level;
+    const kinds = ['starfish', 'barrel', 'anchor', 'coral', 'shell'];
+    for (let i = 0; i < 18; i += 1) {
+      const px = ((i * 211 + 140) % 1180) + 50;
+      const py = ((i * 167 + 90) % 620) + 60;
+      let blocked = false;
+      for (const w of level.walls) {
+        if (px > w.x - 18 && px < w.x + w.w + 18 && py > w.y - 18 && py < w.y + w.h + 18) { blocked = true; break; }
+      }
+      if (blocked) continue;
+      for (const bed of level.kelp || []) {
+        if (px > bed.x - 8 && px < bed.x + bed.w + 8 && py > bed.y - 8 && py < bed.y + bed.h + 8) { blocked = true; break; }
+      }
+      if (blocked) continue;
+      const exit = level.exit;
+      if (px > exit.x - 18 && px < exit.x + exit.w + 18 && py > exit.y - 18 && py < exit.y + exit.h + 18) continue;
+      for (const item of world.state.loot) {
+        if (Math.hypot(px - item.x, py - item.y) < 46) { blocked = true; break; }
+      }
+      if (blocked) continue;
+      for (const sonar of world.state.sonars) {
+        if (Math.hypot(px - sonar.x, py - sonar.y) < 40) { blocked = true; break; }
+      }
+      if (blocked) continue;
+      const kind = kinds[i % kinds.length];
+      if (kind === 'starfish') {
+        ctx.fillStyle = '#ff8c42';
+        ctx.strokeStyle = '#b35a1a';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        for (let p = 0; p < 5; p += 1) {
+          const a = -Math.PI / 2 + (p * Math.PI * 2) / 5 + (i % 5) * 0.2;
+          const a2 = a + Math.PI / 5;
+          const tx = px + Math.cos(a) * 9;
+          const ty = py + Math.sin(a) * 9;
+          const ix = px + Math.cos(a2) * 4;
+          const iy = py + Math.sin(a2) * 4;
+          if (p === 0) ctx.moveTo(tx, ty);
+          else ctx.lineTo(tx, ty);
+          ctx.lineTo(ix, iy);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#ffd166';
+        ctx.beginPath();
+        ctx.arc(px, py, 2, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (kind === 'barrel') {
+        ctx.fillStyle = '#7a5230';
+        ctx.strokeStyle = '#3d2a18';
+        ctx.lineWidth = 1.5;
+        roundRect(ctx, px - 8, py - 10, 16, 20, 3);
+        ctx.fill();
+        ctx.stroke();
+        ctx.strokeStyle = '#3d2a18';
+        ctx.beginPath();
+        ctx.moveTo(px - 8, py - 4);
+        ctx.lineTo(px + 8, py - 4);
+        ctx.moveTo(px - 8, py + 4);
+        ctx.lineTo(px + 8, py + 4);
+        ctx.stroke();
+        ctx.fillStyle = '#9c6b3f';
+        ctx.beginPath();
+        ctx.ellipse(px, py - 10, 8, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (kind === 'anchor') {
+        ctx.strokeStyle = '#5d7285';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(px, py - 8, 4, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(px, py - 4);
+        ctx.lineTo(px, py + 10);
+        ctx.moveTo(px - 8, py - 1);
+        ctx.lineTo(px + 8, py - 1);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(px, py + 10);
+        ctx.quadraticCurveTo(px - 10, py + 8, px - 10, py + 2);
+        ctx.moveTo(px, py + 10);
+        ctx.quadraticCurveTo(px + 10, py + 8, px + 10, py + 2);
+        ctx.stroke();
+        ctx.lineCap = 'butt';
+      } else if (kind === 'coral') {
+        const col = (THEMES[level.theme] || THEMES.reef).corals[i % 4];
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        for (let b = -1; b <= 1; b += 1) {
+          ctx.beginPath();
+          ctx.moveTo(px + b * 5, py + 6);
+          ctx.quadraticCurveTo(px + b * 7, py - 4, px + b * 9, py - 10 - Math.abs(b));
+          ctx.stroke();
+        }
+        ctx.lineCap = 'butt';
+      } else {
+        // Shell: a small pale fan.
+        ctx.fillStyle = '#f2d7d5';
+        ctx.strokeStyle = '#c98f8a';
+        ctx.lineWidth = 1;
+        for (let s = -1; s <= 1; s += 1) {
+          ctx.beginPath();
+          ctx.ellipse(px + s * 5, py + 3, 5, 7, s * 0.25, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
+      }
+    }
   }
 
   /** Treasure, each kind drawn as its own prop with a gold glow: a coin pile, a
@@ -419,12 +798,33 @@ export function createRenderer(canvas) {
         ctx.stroke();
         ctx.restore();
       } else {
-        // Treasure chest, lid open, overflowing with a mound of coins on a sand
-        // patch — the reference loot, redrawn in code.
-        ctx.fillStyle = 'rgba(214, 186, 130, 0.55)';
+        // Treasure chest, lid open, overflowing with a mound of coins on a
+        // dark rock shadow — the reference loot, redrawn in code. The chest
+        // is the vault's heart: a wide golden glow and light rays fanning up
+        // from the open lid, so it reads as the prize from across the frame.
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
         ctx.beginPath();
         ctx.ellipse(x, y + 15, 34, 12, 0, 0, Math.PI * 2);
         ctx.fill();
+        const chestGlow = ctx.createRadialGradient(x, y, 4, x, y, 64);
+        chestGlow.addColorStop(0, 'rgba(255, 200, 80, 0.45)');
+        chestGlow.addColorStop(0.6, 'rgba(255, 180, 60, 0.18)');
+        chestGlow.addColorStop(1, 'rgba(255, 180, 60, 0)');
+        ctx.fillStyle = chestGlow;
+        ctx.beginPath();
+        ctx.arc(x, y, 64, 0, Math.PI * 2);
+        ctx.fill();
+        // Light rays fanning up from the lid, swaying slowly.
+        ctx.fillStyle = 'rgba(255, 220, 130, 0.14)';
+        for (let r = 0; r < 5; r += 1) {
+          const ra = -Math.PI / 2 + (r - 2) * 0.3 + Math.sin(state.elapsed * 0.7 + r) * 0.05;
+          ctx.beginPath();
+          ctx.moveTo(x, y - 6);
+          ctx.lineTo(x + Math.cos(ra - 0.06) * 58, y - 6 + Math.sin(ra - 0.06) * 58);
+          ctx.lineTo(x + Math.cos(ra + 0.06) * 58, y - 6 + Math.sin(ra + 0.06) * 58);
+          ctx.closePath();
+          ctx.fill();
+        }
         ctx.fillStyle = '#6b4a2f';
         roundRect(ctx, x - 18, y - 4, 36, 20, 3);
         ctx.fill();
@@ -454,7 +854,7 @@ export function createRenderer(canvas) {
           ctx.lineWidth = 1;
           ctx.stroke();
         }
-        // Scattered coins on the sand around the chest.
+        // Scattered coins on the rock around the chest.
         ctx.fillStyle = '#f6c945';
         for (const [sx, sy] of [[-27, 13], [25, 15], [-21, -14], [27, -10]]) {
           ctx.beginPath();
@@ -495,77 +895,86 @@ export function createRenderer(canvas) {
     }
   }
 
-  /** A shark, top-down, facing `dir`: crescent tail, tapered body, a long dorsal
-   * ridge down the spine, two big swept pectoral fins, gill slits and two eyes
-   * near the snout — the reference shape, redrawn in code. */
+  /** A shark in side profile, facing `dir`: a long torpedo body, pointed
+   * snout, crescent tail with a longer upper lobe, tall dorsal fin, swept
+   * pectoral fin, gill slits, one eye and a small mouth — the reference
+   * shape, redrawn in code. It rotates to face where it swims. */
   function drawShark(shark, chasing) {
     ctx.save();
     ctx.translate(shark.x, shark.y);
     ctx.rotate(shark.dir);
-    const L = 30;
-    // Pectoral fins: big swept triangles on both flanks.
-    ctx.fillStyle = PALETTE.sharkFin;
+    // Tail: a crescent with a longer upper lobe, sweeping behind.
+    ctx.fillStyle = PALETTE.shark;
     ctx.strokeStyle = '#16233d';
     ctx.lineWidth = 2;
-    for (const side of [-1, 1]) {
-      ctx.beginPath();
-      ctx.moveTo(2, side * 9);
-      ctx.lineTo(-12, side * 30);
-      ctx.lineTo(-2, side * 12);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-    }
-    // Tail: a crescent with two lobes.
-    ctx.fillStyle = PALETTE.shark;
     ctx.beginPath();
-    ctx.moveTo(-14, 0);
-    ctx.quadraticCurveTo(-26, -16, -34, -15);
-    ctx.quadraticCurveTo(-26, -6, -22, -2);
-    ctx.quadraticCurveTo(-20, 0, -22, 2);
-    ctx.quadraticCurveTo(-26, 6, -34, 15);
-    ctx.quadraticCurveTo(-26, 16, -14, 0);
+    ctx.moveTo(-22, 0);
+    ctx.quadraticCurveTo(-32, -14, -40, -13);
+    ctx.quadraticCurveTo(-32, -5, -28, -1);
+    ctx.quadraticCurveTo(-26, 0, -28, 1);
+    ctx.quadraticCurveTo(-32, 5, -38, 11);
+    ctx.quadraticCurveTo(-30, 12, -22, 0);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
-    // Body: wide amidships, tapering to a pointed snout.
+    // Body: long torpedo, pointed snout, flat-ish belly — side profile.
     ctx.beginPath();
-    ctx.moveTo(-16, -7);
-    ctx.quadraticCurveTo(2, -14, 26, 0);
-    ctx.quadraticCurveTo(2, 14, -16, 7);
-    ctx.quadraticCurveTo(-20, 0, -16, -7);
+    ctx.moveTo(-24, -3);
+    ctx.quadraticCurveTo(-8, -13, 14, -9);
+    ctx.quadraticCurveTo(28, -6, 33, 0);
+    ctx.quadraticCurveTo(28, 5, 14, 8);
+    ctx.quadraticCurveTo(-8, 11, -24, 3);
+    ctx.quadraticCurveTo(-27, 0, -24, -3);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
-    // Belly highlight down the middle.
+    // Belly: pale underside.
     ctx.fillStyle = PALETTE.sharkBelly;
-    ctx.globalAlpha = 0.55;
+    ctx.globalAlpha = 0.6;
     ctx.beginPath();
-    ctx.ellipse(4, 0, 20, 6, 0, 0, Math.PI * 2);
+    ctx.moveTo(-20, 2);
+    ctx.quadraticCurveTo(0, 8, 24, 2);
+    ctx.quadraticCurveTo(0, 10, -20, 2);
+    ctx.closePath();
     ctx.fill();
     ctx.globalAlpha = 1;
-    // Dorsal ridge: the long thin fin down the spine.
+    // Dorsal fin: a tall triangle on the back.
     ctx.fillStyle = PALETTE.sharkFin;
     ctx.beginPath();
-    ctx.ellipse(-2, 0, 12, 2.5, 0, 0, Math.PI * 2);
+    ctx.moveTo(-4, -10);
+    ctx.lineTo(4, -22);
+    ctx.lineTo(10, -9);
+    ctx.closePath();
     ctx.fill();
-    // Gill slits near the head.
+    ctx.stroke();
+    // Pectoral fin: swept down and back.
+    ctx.beginPath();
+    ctx.moveTo(2, 6);
+    ctx.lineTo(-6, 18);
+    ctx.lineTo(6, 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    // Gill slits behind the head.
     ctx.strokeStyle = '#16233d';
     ctx.lineWidth = 1.5;
     for (let g = 0; g < 3; g += 1) {
       ctx.beginPath();
-      ctx.moveTo(14 + g * 3, -6);
-      ctx.lineTo(12 + g * 3, -10);
-      ctx.moveTo(14 + g * 3, 6);
-      ctx.lineTo(12 + g * 3, 10);
+      ctx.moveTo(16 - g * 3, -6);
+      ctx.lineTo(14 - g * 3, 2);
       ctx.stroke();
     }
-    // Eyes: two dots near the snout.
+    // Eye near the snout, and a small mouth line.
     ctx.fillStyle = '#101c2e';
     ctx.beginPath();
-    ctx.arc(19, -4, 1.8, 0, Math.PI * 2);
-    ctx.arc(19, 4, 1.8, 0, Math.PI * 2);
+    ctx.arc(24, -3, 2, 0, Math.PI * 2);
     ctx.fill();
+    ctx.strokeStyle = '#16233d';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(26, 3);
+    ctx.quadraticCurveTo(29, 4, 31, 2);
+    ctx.stroke();
     ctx.restore();
     if (chasing) {
       ctx.fillStyle = '#ff4d4d';
@@ -575,74 +984,95 @@ export function createRenderer(canvas) {
     }
   }
 
-  /** The diver, top-down, facing `dir`: orange wetsuit, arms forward, silver
-   * tank on the back, yellow flippers kicking behind, dark mask, bubble trail. */
+  /** The diver in side profile, facing `dir`: a horizontal swimmer, orange
+   * wetsuit, yellow tank on the back, one arm reaching forward, legs trailing
+   * with kicking yellow flippers, dark hood with a blue mask lens — the
+   * reference shape, redrawn in code. It rotates to face where it swims. */
   function drawDiver(world) {
     const state = world.state;
     const player = state.player;
     if (state.phase !== 'play' && state.phase !== 'clear') return;
     const blink = player.invulnerable > 0 && Math.floor(state.elapsed * 8) % 2 === 0;
     if (blink) return;
-    const kick = Math.sin(state.elapsed * 10) * 0.18;
+    const kick = Math.sin(state.elapsed * 10) * 0.25;
     ctx.save();
     ctx.translate(player.x, player.y);
     ctx.rotate(Math.atan2(player.dirY, player.dirX));
-    // Flippers: two yellow blades kicking behind.
-    ctx.fillStyle = '#ffd166';
-    ctx.strokeStyle = '#8a6d1a';
-    ctx.lineWidth = 1.5;
+    // Legs + flippers: two legs trailing behind, kicking.
     for (const side of [-1, 1]) {
       ctx.save();
-      ctx.translate(-16, side * 6);
-      ctx.rotate(side * kick);
+      ctx.translate(-14, side * 3);
+      ctx.rotate(side * kick * 0.6);
+      // Leg.
+      ctx.strokeStyle = PALETTE.diverSuit;
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.moveTo(0, side * -4);
-      ctx.lineTo(-14, side * -6);
-      ctx.lineTo(-16, side * 5);
-      ctx.lineTo(0, side * 4);
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-10, side * 3);
+      ctx.stroke();
+      // Flipper: a yellow blade at the foot.
+      ctx.fillStyle = '#ffd166';
+      ctx.strokeStyle = '#8a6d1a';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(-10, side * 3 - 3);
+      ctx.lineTo(-22, side * 5);
+      ctx.lineTo(-22, side * 1);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
       ctx.restore();
     }
-    // Body: orange wetsuit capsule.
+    ctx.lineCap = 'butt';
+    // Body: a horizontal orange wetsuit, slightly arched.
     ctx.fillStyle = player.sneaking ? PALETTE.diverSneak : PALETTE.diver;
     ctx.strokeStyle = '#7a3c00';
     ctx.lineWidth = 2;
-    roundRect(ctx, -12, -8, 24, 16, 8);
+    ctx.beginPath();
+    ctx.moveTo(-16, -2);
+    ctx.quadraticCurveTo(-4, -9, 10, -6);
+    ctx.quadraticCurveTo(16, -4, 16, 0);
+    ctx.quadraticCurveTo(16, 4, 10, 6);
+    ctx.quadraticCurveTo(-4, 8, -16, 2);
+    ctx.quadraticCurveTo(-18, 0, -16, -2);
+    ctx.closePath();
     ctx.fill();
     ctx.stroke();
-    // Arms reaching forward.
-    ctx.fillStyle = player.sneaking ? PALETTE.diverSneak : PALETTE.diver;
-    roundRect(ctx, 10, -9, 12, 5, 2.5);
+    // Tank: a yellow cylinder along the back, valve at the head end.
+    ctx.fillStyle = '#ffd166';
+    roundRect(ctx, -10, -11, 20, 6, 3);
     ctx.fill();
-    roundRect(ctx, 10, 4, 12, 5, 2.5);
-    ctx.fill();
-    // Tank: silver cylinder on the back with dark straps.
-    ctx.fillStyle = '#c8ccd2';
-    roundRect(ctx, -8, -5, 16, 10, 5);
-    ctx.fill();
-    ctx.strokeStyle = '#4a4e55';
+    ctx.strokeStyle = '#8a6d1a';
     ctx.lineWidth = 1.5;
     ctx.stroke();
+    ctx.fillStyle = '#8a6d1a';
+    ctx.fillRect(9, -12, 3, 8);
+    // Arms reaching forward.
+    ctx.strokeStyle = player.sneaking ? PALETTE.diverSneak : PALETTE.diver;
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(-4, -5);
-    ctx.lineTo(-4, 5);
-    ctx.moveTo(4, -5);
-    ctx.lineTo(4, 5);
+    ctx.moveTo(10, 0);
+    ctx.lineTo(20, -3);
     ctx.stroke();
-    ctx.fillStyle = '#4a4e55';
     ctx.beginPath();
-    ctx.arc(9, 0, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-    // Mask: dark circle with a glass glint, at the head.
+    ctx.moveTo(10, 2);
+    ctx.lineTo(18, 5);
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+    // Head: a dark hood with a blue mask lens and a glint.
     ctx.fillStyle = '#101c2e';
     ctx.beginPath();
-    ctx.arc(14, 0, 5, 0, Math.PI * 2);
+    ctx.arc(19, -1, 5, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = 'rgba(190, 232, 255, 0.8)';
+    ctx.fillStyle = '#4fc3f7';
     ctx.beginPath();
-    ctx.arc(15.5, -1.5, 1.8, 0, Math.PI * 2);
+    ctx.arc(21, -2, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.beginPath();
+    ctx.arc(22, -3, 1.2, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
     // Bubble trail rising from the mask toward the surface.
@@ -677,12 +1107,12 @@ export function createRenderer(canvas) {
   function drawField(world) {
     const state = world.state;
     const level = state.level;
-    const theme = THEMES[level.theme] || THEMES.reef;
 
     drawWater(world);
     drawKelpBack(world, false);
+    drawProps(world);
 
-    drawBoat(world);
+    drawWhirlpool(world);
     drawLoot(world);
 
     // Shark patrol routes, as faint dashed lines: the player can read where each
@@ -709,7 +1139,7 @@ export function createRenderer(canvas) {
       ctx.fillStyle = disabled
         ? 'rgba(139, 147, 163, 0.10)'
         : sonar.spotted
-          ? 'rgba(255, 170, 40, 0.40)'
+          ? PALETTE.sonarConeHot
           : PALETTE.sonarCone;
       conePath(ctx, sonar.x, sonar.y, sonar.angle, SONAR.halfAngle, sonar.range);
       ctx.fill();
@@ -749,61 +1179,9 @@ export function createRenderer(canvas) {
       }
     }
 
-    // Rocks, drawn last so they sit on top of the cones they block. Bevelled like
-    // a diorama block: a drop shadow below, a bright lit top edge, darker body,
-    // coral sprigs on the reef.
-    for (const w of level.walls) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-      ctx.fillRect(w.x + 2, w.y + w.h, w.w, 5);
-      ctx.fillStyle = theme.rock;
-      ctx.fillRect(w.x, w.y, w.w, w.h);
-      ctx.fillStyle = theme.rockTop;
-      ctx.fillRect(w.x, w.y, w.w, 6);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
-      ctx.fillRect(w.x, w.y, w.w, 2);
-      ctx.strokeStyle = theme.rockEdge;
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(w.x, w.y, w.w, w.h);
-      // Coral sprigs and glow dots on the rock tops.
-      const sprigs = Math.floor(w.w / 60);
-      for (let s = 0; s < sprigs; s += 1) {
-        const cx = w.x + 20 + s * 60;
-        const cy = w.y + 10;
-        if (level.theme === 'trench') {
-          ctx.fillStyle = theme.coral;
-          ctx.globalAlpha = 0.8;
-          ctx.beginPath();
-          ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.globalAlpha = 1;
-        } else {
-          // Branching coral: two forked arms with warm tip dots.
-          ctx.strokeStyle = theme.coral;
-          ctx.lineWidth = 2;
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          ctx.moveTo(cx, cy + 6);
-          ctx.lineTo(cx - 3, cy - 2);
-          ctx.lineTo(cx - 6, cy - 7);
-          ctx.moveTo(cx - 3, cy - 2);
-          ctx.lineTo(cx - 1, cy - 8);
-          ctx.moveTo(cx, cy + 6);
-          ctx.lineTo(cx + 3, cy - 3);
-          ctx.lineTo(cx + 6, cy - 8);
-          ctx.moveTo(cx + 3, cy - 3);
-          ctx.lineTo(cx + 2, cy - 9);
-          ctx.stroke();
-          ctx.fillStyle = theme.coral2;
-          ctx.beginPath();
-          ctx.arc(cx - 6, cy - 7, 1.8, 0, Math.PI * 2);
-          ctx.arc(cx - 1, cy - 8, 1.8, 0, Math.PI * 2);
-          ctx.arc(cx + 6, cy - 8, 1.8, 0, Math.PI * 2);
-          ctx.arc(cx + 2, cy - 9, 1.8, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.lineCap = 'butt';
-        }
-      }
-    }
+    // Stone-block walls, drawn last so they sit on top of the cones they block. Same
+    // collision rectangles as before — only the picture changed.
+    level.walls.forEach((w, i) => drawStoneWall(world, w, i));
 
     // Front kelp blades over the entities: the diver really vanishes into the bed.
     drawKelpBack(world, true);
@@ -821,6 +1199,71 @@ export function createRenderer(canvas) {
         ctx.fill();
       }
     }
+  }
+
+  /** Minimap: the whole dive site at a glance, bottom-right — walls, kelp,
+   * loot, the whirlpool, sharks, sonar cameras and the diver, all as dots. */
+  function drawMinimap(world) {
+    const state = world.state;
+    const level = state.level;
+    const bx = 1118;
+    const by = 612;
+    const bw = 152;
+    const bh = 88;
+    const s = bw / FIELD.width;
+    const ox = bx;
+    const oy = by + (bh - FIELD.height * s) / 2;
+    const mx = (x) => ox + x * s;
+    const my = (y) => oy + y * s;
+    ctx.fillStyle = 'rgba(3, 16, 28, 0.8)';
+    roundRect(ctx, bx, by, bw, bh, 8);
+    ctx.fill();
+    ctx.strokeStyle = '#3a4556';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#5d6f83';
+    for (const w of level.walls) ctx.fillRect(mx(w.x), my(w.y), Math.max(1, w.w * s), Math.max(1, w.h * s));
+    ctx.fillStyle = '#1f7a4d';
+    for (const bed of level.kelp || []) ctx.fillRect(mx(bed.x), my(bed.y), bed.w * s, bed.h * s);
+    ctx.fillStyle = PALETTE.gold;
+    for (const item of state.loot) {
+      if (item.taken) continue;
+      ctx.beginPath();
+      ctx.arc(mx(item.x), my(item.y), 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = PALETTE.whirl;
+    ctx.fillRect(mx(level.exit.x), my(level.exit.y), level.exit.w * s, level.exit.h * s);
+    ctx.fillStyle = '#ff4d4d';
+    for (const shark of state.sharks) {
+      ctx.beginPath();
+      ctx.arc(mx(shark.x), my(shark.y), 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#ffd166';
+    for (const sonar of state.sonars) {
+      ctx.beginPath();
+      ctx.arc(mx(sonar.x), my(sonar.y), 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(mx(state.player.x), my(state.player.y), 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = PALETTE.diver;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  /** Control hints along the bottom edge, like the reference's bar. */
+  function drawControlsBar() {
+    ctx.fillStyle = 'rgba(3, 16, 28, 0.7)';
+    roundRect(ctx, 12, 686, 340, 24, 8);
+    ctx.fill();
+    ctx.fillStyle = PALETTE.muted;
+    ctx.font = '12px ' + FONT;
+    ctx.textAlign = 'left';
+    ctx.fillText('WASD swim  ·  SHIFT sneak  ·  Q ink burst  ·  Click steer', 22, 702);
   }
 
   function drawHud(world) {
@@ -889,74 +1332,59 @@ export function createRenderer(canvas) {
     ctx.textAlign = 'left';
   }
 
-  /** Sonar camera domes: a glass dome on a seabed mount with a lens inside,
-   * labelled SONAR so the judge reads it as a camera at a glance. */
+  /** Sonar cameras: box CCTV cameras hung from the nearest border wall on a
+   * mount arm, lens facing the sweeping cone, red indicator blinking while
+   * live — labelled SONAR so the judge reads them as cameras at a glance. */
   function drawSonarMounts(world) {
     for (const sonar of world.state.sonars) {
       const disabled = sonar.disabled > 0;
-      // Seabed mount: a round sand-and-rock disc with pebbles and algae.
-      ctx.fillStyle = '#6f6244';
+      // Mount arm from the nearest border wall to the camera body.
+      const wallY = sonar.y < FIELD.height / 2 ? 24 : FIELD.height - 24;
+      ctx.strokeStyle = '#3a4556';
+      ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(sonar.x, sonar.y + 4, 17, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#8a7a58';
-      ctx.beginPath();
-      ctx.arc(sonar.x - 5, sonar.y + 1, 5, 0, Math.PI * 2);
-      ctx.arc(sonar.x + 8, sonar.y + 8, 4, 0, Math.PI * 2);
-      ctx.fill();
-      // Dome: metal grey-blue with panel seams and rivets — a security camera
-      // on the seabed, so the judge reads it as a camera at a glance.
+      ctx.moveTo(sonar.x, wallY);
+      ctx.lineTo(sonar.x, sonar.y - 8);
+      ctx.stroke();
+      // Wall bracket where the arm meets the wall.
+      ctx.fillStyle = '#2e3440';
+      ctx.fillRect(sonar.x - 8, wallY - 3, 16, 6);
+      // Camera body: a grey box rotated to face the sweeping cone.
+      ctx.save();
+      ctx.translate(sonar.x, sonar.y);
+      ctx.rotate(sonar.angle);
       ctx.fillStyle = disabled ? '#6a7078' : '#5d7285';
-      ctx.beginPath();
-      ctx.arc(sonar.x, sonar.y - 2, 13, 0, Math.PI * 2);
-      ctx.fill();
       ctx.strokeStyle = '#232d3d';
       ctx.lineWidth = 2;
+      roundRect(ctx, -14, -8, 28, 16, 4);
+      ctx.fill();
       ctx.stroke();
-      ctx.strokeStyle = 'rgba(35, 45, 61, 0.8)';
-      ctx.lineWidth = 1.5;
+      // Rain hood over the lens end.
+      ctx.fillStyle = disabled ? '#5c636e' : '#4a5a6e';
+      roundRect(ctx, 6, -10, 10, 20, 3);
+      ctx.fill();
+      // Lens: a dark glass circle at the front, ringed in cyan while live.
+      ctx.fillStyle = disabled ? '#5c636e' : '#bfe8ff';
       ctx.beginPath();
-      ctx.moveTo(sonar.x - 13, sonar.y - 2);
-      ctx.lineTo(sonar.x + 13, sonar.y - 2);
-      ctx.moveTo(sonar.x, sonar.y - 15);
-      ctx.lineTo(sonar.x, sonar.y + 11);
-      ctx.stroke();
-      ctx.fillStyle = '#232d3d';
-      for (const [rx, ry] of [[-8, -9], [8, -9], [-8, 5], [8, 5]]) {
-        ctx.beginPath();
-        ctx.arc(sonar.x + rx, sonar.y + ry, 1.2, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      // Antenna.
-      ctx.strokeStyle = '#3a4556';
-      ctx.lineWidth = 2;
+      ctx.arc(13, 0, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = disabled ? '#3a3f46' : '#101c2e';
       ctx.beginPath();
-      ctx.moveTo(sonar.x, sonar.y - 15);
-      ctx.lineTo(sonar.x, sonar.y - 22);
-      ctx.stroke();
-      // Red indicator light, blinking while live.
+      ctx.arc(13, 0, 3, 0, Math.PI * 2);
+      ctx.fill();
+      // Red indicator light on the body, blinking while live.
       const blink = !disabled && Math.floor(world.state.elapsed * 2) % 2 === 0;
       ctx.fillStyle = blink ? '#ff2d2d' : '#7a1d1d';
       ctx.beginPath();
-      ctx.arc(sonar.x + 9, sonar.y - 10, 2.5, 0, Math.PI * 2);
+      ctx.arc(-8, -4, 2.5, 0, Math.PI * 2);
       ctx.fill();
       if (blink) {
         ctx.fillStyle = 'rgba(255, 45, 45, 0.35)';
         ctx.beginPath();
-        ctx.arc(sonar.x + 9, sonar.y - 10, 5, 0, Math.PI * 2);
+        ctx.arc(-8, -4, 5, 0, Math.PI * 2);
         ctx.fill();
       }
-      // Lens: a bright cyan ring that turns to face the sweeping cone.
-      const lx = sonar.x + Math.cos(sonar.angle) * 9;
-      const ly = sonar.y - 2 + Math.sin(sonar.angle) * 9;
-      ctx.fillStyle = disabled ? '#5c636e' : '#bfe8ff';
-      ctx.beginPath();
-      ctx.arc(lx, ly, 4.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = disabled ? '#3a3f46' : '#101c2e';
-      ctx.beginPath();
-      ctx.arc(lx, ly, 2.5, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.restore();
       ctx.fillStyle = PALETTE.muted;
       ctx.font = 'bold 10px ' + FONT;
       ctx.textAlign = 'center';
@@ -1018,6 +1446,8 @@ export function createRenderer(canvas) {
     if (screen.type !== SCREEN_TITLE) {
       drawHud(world);
       drawMessage(world);
+      drawMinimap(world);
+      drawControlsBar();
     }
     // Domes go on top of the HUD (and of the title dimming), so a sonar camera
     // on the top wall is always visible, never buried under a bar or a panel.
@@ -1027,7 +1457,7 @@ export function createRenderer(canvas) {
         'SUNKEN VAULT',
         [
           'An underwater heist: dive past the sharks, dodge the sonar cameras,',
-          'pocket the sunken treasure and reach the boat before the alarm',
+          'pocket the sunken treasure and reach the whirlpool before the alarm',
           'tops out — or your air runs out. Hide in the kelp: sharks and',
           'sonar cannot see through it. Read the dashed patrol lines and',
           'guess where each shark swims next.',

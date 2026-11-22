@@ -36,7 +36,7 @@ function segmentBlocked(state, x1, y1, x2, y2) {
 }
 
 /**
- * The autopilot: head for the nearest unpocketed treasure (or the boat once the
+ * The autopilot: head for the nearest unpocketed treasure (or the whirlpool once the
  * bag is full), scoring each of the eight directions by distance to the target
  * plus a heavy penalty for stepping into a live shark or sonar cone. It re-decides
  * every step, so it waits out a sweeping cone instead of swimming through it.
@@ -116,7 +116,9 @@ function runPilot(world, seconds, sneak) {
 /**
  * Stage one screenshot scene and return the screen to render.
  * title — the diver at the reef edge, sharks on patrol behind the title panel.
- * play — mid-dive: the diver crossing the reef with a shark's cone nearby.
+ * play — mid-dive: the diver crossing the reef with a shark's cone nearby,
+ *   stone-block walls and floor props in frame, the minimap and control bar
+ *   visible — the cover shot.
  * sneak — the diver creeping in slow gear past the patrol.
  * alarm — the diver caught in a live sonar cone, alarm climbing, shark turning.
  * clear — the reef dive done: the dive-clear panel over the emptied seabed.
@@ -139,7 +141,7 @@ export function stageShot(id) {
     runPilot(world, 4, false);
     // Park the diver under the reef sonar camera, inside its sweeping cone, and
     // let the alarm climb for real while the shark turns toward the noise. The
-    // parking spot (640, 120) is open sand — no kelp bed covers it.
+    // parking spot (640, 120) is open seabed — no kelp bed covers it.
     world.state.player.x = 640;
     world.state.player.y = 120;
     runSteps(world, 2, IDLE);

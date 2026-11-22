@@ -1,6 +1,6 @@
 // Sunken Vault — the game's rules and state, with no drawing and no browser in
 // it: the diver, the patrolling sharks and their sense cones, the sweeping sonar
-// cameras, the treasure, the alarm meter, the boat, the score. step() advances one
+// cameras, the treasure, the alarm meter, the whirlpool portal, the score. step() advances one
 // fixed step and returns what happened as bit flags, so the caller can react
 // without the world knowing about screens or sound. Nothing here allocates after
 // createWorld returns.
@@ -481,7 +481,8 @@ export function createWorld(random) {
       return events;
     }
 
-    // The boat: reach it with at least one piece of treasure to clear the level.
+    // The whirlpool: swim into the portal with at least one piece of treasure
+    // to clear the level and dive on to the next dimension.
     const exit = state.level.exit;
     if (
       player.x > exit.x &&
@@ -500,7 +501,7 @@ export function createWorld(random) {
           state.phase = 'clear';
         }
       } else {
-        state.message = 'The boat leaves empty — grab at least one treasure first.';
+        state.message = 'The whirlpool needs treasure — grab at least one piece first.';
         state.messageTimer = 3;
       }
     }

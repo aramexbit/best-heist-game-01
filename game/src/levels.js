@@ -2,7 +2,7 @@
 // single 1280x720 frame: rocks are cover (and block sight), kelp beds hide the
 // diver from sharks and sonar without blocking the swim, treasure is spread so the
 // diver must choose a route, sharks swim fixed patrols, and sonar cameras sweep the
-// chokepoints. Entry is always on the left edge, the boat on the right edge.
+// chokepoints. Entry is always on the left edge, the whirlpool on the right edge.
 //
 // Geometry is the probe-verified v1 layout, unchanged: the autopilot's routes,
 // the wall sight-lines and the staged alarm scene all still hold.
@@ -26,7 +26,7 @@ export const LEVELS = [
   {
     name: '1 · The Coral Reef',
     theme: 'reef',
-    hint: 'One shark, one sonar camera. Learn the cones, then take the pearl.',
+    hint: 'One shark, one sonar camera. Learn the cones, take the pearl, then dive into the whirlpool.',
     timeLimit: 120,
     entry: { x: 64, y: 360 },
     exit: { x: 1172, y: 300, w: 64, h: 120 },
@@ -58,7 +58,7 @@ export const LEVELS = [
   {
     name: '2 · The Shipwreck',
     theme: 'wreck',
-    hint: 'Two sharks cross the wreck. The sapphire sits in the middle — time it.',
+    hint: 'Two sharks cross the wreck. The sapphire sits in the middle — time it, then ride the whirlpool out.',
     timeLimit: 120,
     entry: { x: 64, y: 360 },
     exit: { x: 1172, y: 300, w: 64, h: 120 },
@@ -94,7 +94,7 @@ export const LEVELS = [
   {
     name: '3 · The Deep Trench',
     theme: 'trench',
-    hint: 'Three sharks, three sonar cameras, one chest of gold. Ink the cameras and swim.',
+    hint: 'Three sharks, three sonar cameras, one chest of gold. Ink the cameras, swim, and escape through the whirlpool.',
     timeLimit: 150,
     entry: { x: 64, y: 360 },
     exit: { x: 1172, y: 300, w: 64, h: 120 },

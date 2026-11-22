@@ -6,21 +6,23 @@
 
 **Sunken Vault** is an underwater stealth heist game, built for the
 [make.fun "Make the best heist game" competition](https://make.fun/c/best-heist-game-20261122-0559).
-One diver, three dives — a coral reef, a shipwreck, a deep trench — and one boat
-waiting on the surface.
+One diver, three dives — a coral reef, a shipwreck, a deep trench — and one whirlpool
+portal spinning at the far edge, waiting to carry the loot to another dimension.
 
 ## How it plays
 
 - **Dive in.** Swim past patrolling sharks and their sense cones, and the
-  sweeping sonar cameras on the seabed. Rocks block sight, so use them as cover —
-  and hide in the kelp beds, which sharks and sonar cannot see through. The dashed
-  patrol lines show where each shark swims, so you can guess its next move.
+  sweeping sonar cameras hung on the walls. Stone-block walls block sight,
+  so use them as cover — and hide in the kelp beds, which sharks and sonar
+  cannot see through. The dashed patrol lines show where each shark swims,
+  so you can guess its next move. A minimap in the corner shows the whole
+  dive site — walls, kelp, treasure, sharks, sonar cameras and you.
 - **Steal.** Pocket the sunken treasure: gold coins ($100), pearls ($250),
-  sapphires ($500), treasure chests ($1,000). The boat only leaves with at least
+  sapphires ($500), treasure chests ($1,000). The whirlpool only takes you with at least
   one piece aboard.
 - **Don't get seen.** Being spotted fills the alarm meter; a full alarm puts the
   whole reef on alert, costs $100, and sends every shark hunting for you.
-- **Escape.** Reach the boat before your air runs out. Score is treasure
+- **Escape.** Reach the whirlpool before your air runs out. Score is treasure
   plus a time bonus, minus lockdown penalties.
 
 ## Controls
