@@ -56,15 +56,20 @@ export const SHARK = {
 };
 
 /** The diver's harpoon gun: Space fires toward the mouse cursor (or the way the
- * diver faces when there is no cursor yet). A hit stuns the shark for a few
- * seconds — it never kills, so the reef stays dangerous. Ammo is unlimited
- * but the gun needs a short cooldown between shots. */
+ * diver faces when there is no cursor yet). A hit is a trade-off: the shark
+ * learns exactly where the diver is and comes hunting — but every hit slows
+ * that shark down, 12% per hit up to 60% off, for the rest of the dive. It
+ * never kills, so the reef stays dangerous. Ammo is unlimited but the gun
+ * needs a short cooldown between shots. Five hits reach the cap, so a
+ * much-shot shark swims at 40% speed. */
 export const HARPOON = {
   speed: 520,
   range: 420,
   radius: 6,
   cooldownSeconds: 1.5,
-  stunSeconds: 3,
+  /** Swim speed lost per harpoon hit, and the most a shark can lose. */
+  slowPerHit: 0.12,
+  maxSlow: 0.6,
 };
 
 /** A sonar camera on the seabed sweeps its cone back and forth; the ink burst switches it off for a while. */

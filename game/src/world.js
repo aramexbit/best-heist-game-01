@@ -33,7 +33,7 @@ export const EVENT_OVER = 64;
 export const EVENT_INK = 128;
 /** A harpoon was fired. */
 export const EVENT_HARPOON = 256;
-/** A harpoon hit a shark and stunned it. */
+/** A harpoon hit a shark: it learned where the diver is — and slowed down. */
 export const EVENT_HARPOON_HIT = 512;
 /** A shark finished its wind-up and lunged. */
 export const EVENT_ATTACK = 1024;
@@ -46,6 +46,15 @@ function angleDiff(a, b) {
   while (d > Math.PI) d -= Math.PI * 2;
   while (d < -Math.PI) d += Math.PI * 2;
   return Math.abs(d);
+}
+
+/** How fast this shark still swims: every harpoon hit slows it by
+ * HARPOON.slowPerHit, down to a floor of 1 - HARPOON.maxSlow — so a shark
+ * shot twice is already a quarter slower, and a much-shot shark crawls.
+ * Five hits reach the cap. */
+export function sharkSpeedFactor(shark) {
+  const hits = shark.slowHits || 0;
+  return Math.max(1 - HARPOON.slowPerHit * hits, 1 - HARPOON.maxSlow);
 }
 
 /** True when the segment (x1,y1)-(x2,y2) crosses the rectangle. Exported so the
@@ -146,15 +155,16 @@ export function createWorld(random) {
       loseTimer: 0,
       huntTimer: 0,
       stuckTimer: 0,
-      /** Attack timers: wind-up telegraph, lunge, recovery cooldown, and the
-       * stun a harpoon hit leaves behind. All zero means ready to attack. */
+      /** Attack timers: wind-up telegraph, lunge and recovery cooldown. All
+       * zero means ready to attack. slowHits counts the harpoon hits this
+       * shark has taken: each one slows it down for the rest of the dive. */
       attackCooldown: 0,
       windupTimer: 0,
       lungeTimer: 0,
       lungeDirX: 1,
       lungeDirY: 0,
       recoverTimer: 0,
-      stunTimer: 0,
+      slowHits: 0,
       lastSeen: { x: g.waypoints[0].x, y: g.waypoints[0].y },
     }));
     state.sonars = level.sonars.map((c, i) => ({
@@ -308,7 +318,8 @@ export function createWorld(random) {
       shark.windupTimer = 0;
       shark.lungeTimer = 0;
       shark.recoverTimer = 0;
-      shark.stunTimer = 0;
+      // slowHits is NOT reset here: a shark shot before the catch stays slow
+      // for the rest of the dive — the trade-off keeps its cost.
     }
   }
 
@@ -341,20 +352,14 @@ export function createWorld(random) {
 
     // Sharks always swim their patrols — and their attacks. The state machine:
     // patrol -> chase (spotted) -> windup (telegraph, half a second) -> lunge
-    // (the bite) -> recover (cooldown) -> chase or patrol. A harpoon hit leaves
-    // the shark 'stunned' and harmless for a few seconds. A chasing shark that
-    // cannot see the diver swims to where it last saw them, then gives up:
-    // hiding in kelp or breaking line of sight around a rock really does lose it.
+    // (the bite) -> recover (cooldown) -> chase or patrol. A harpoon hit never
+    // stops a shark: it tells the shark where the diver is, so it turns and
+    // hunts — but every hit slows it down for the rest of the dive. A chasing
+    // shark that cannot see the diver swims to where it last saw them, then
+    // gives up: hiding in kelp or breaking line of sight around a rock really
+    // does lose it.
     for (const shark of state.sharks) {
       if (shark.attackCooldown > 0) shark.attackCooldown -= dt;
-      if (shark.state === 'stunned') {
-        shark.stunTimer -= dt;
-        if (shark.stunTimer <= 0) {
-          shark.state = 'patrol';
-          shark.suspicion = 0;
-        }
-        continue;
-      }
       if (shark.state === 'windup') {
         // Telegraph: the shark rears and tracks the diver but does not move, so
         // the diver has a fair half-second to dodge. Lose sight (kelp, rock,
@@ -382,8 +387,10 @@ export function createWorld(random) {
       if (shark.state === 'lunge') {
         // The bite: a fast straight burst along the line fixed at wind-up end.
         // Rocks stop it, and a diver who moved clear is simply not there.
-        const vx = shark.lungeDirX * SHARK.lungeSpeed * dt;
-        const vy = shark.lungeDirY * SHARK.lungeSpeed * dt;
+        // A much-shot shark lunges slower too: the slow applies to every swim.
+        const lungeSpeed = SHARK.lungeSpeed * sharkSpeedFactor(shark);
+        const vx = shark.lungeDirX * lungeSpeed * dt;
+        const vy = shark.lungeDirY * lungeSpeed * dt;
         moveCircle(shark, vx, vy, SHARK.radius);
         shark.lungeTimer -= dt;
         if (!demo && state.phase === 'play' && state.player.invulnerable === 0) {
@@ -431,8 +438,9 @@ export function createWorld(random) {
           } else {
             const beforeX = shark.x;
             const beforeY = shark.y;
-            const vx = (dx / dist) * shark.speed * dt;
-            const vy = (dy / dist) * shark.speed * dt;
+            const patrolSpeed = shark.speed * sharkSpeedFactor(shark);
+            const vx = (dx / dist) * patrolSpeed * dt;
+            const vy = (dy / dist) * patrolSpeed * dt;
             shark.dir = Math.atan2(dy, dx);
             moveCircle(shark, vx, vy, SHARK.radius);
             // A patrol blocked by a rock for 1.5s skips to the next waypoint
@@ -460,8 +468,9 @@ export function createWorld(random) {
         const dy = ty - shark.y;
         const dist = Math.hypot(dx, dy);
         if (dist > 2) {
-          const vx = (dx / dist) * SHARK.chaseSpeed * dt;
-          const vy = (dy / dist) * SHARK.chaseSpeed * dt;
+          const huntSpeed = SHARK.chaseSpeed * sharkSpeedFactor(shark);
+          const vx = (dx / dist) * huntSpeed * dt;
+          const vy = (dy / dist) * huntSpeed * dt;
           shark.dir = Math.atan2(dy, dx);
           moveCircle(shark, vx, vy, SHARK.radius);
         }
@@ -504,7 +513,9 @@ export function createWorld(random) {
 
     // Harpoon gun: Space fires one spear toward the aim point (the mouse
     // cursor, or the way the diver faces). Unlimited spears, but the gun
-    // needs a short cooldown between shots.
+    // needs a short cooldown between shots — and every hit is a trade-off
+    // (see the harpoon flight below): it slows the shark, but tells it
+    // exactly where you are.
     if (state.harpoonCooldown > 0) state.harpoonCooldown -= dt;
     if (input.fire && state.harpoonCooldown <= 0) {
       const aimX = typeof input.aimX === 'number' ? input.aimX : player.x + player.dirX * 240;
@@ -526,9 +537,10 @@ export function createWorld(random) {
     }
 
     // Harpoons in flight: they fly straight until they run out of range, hit
-    // a rock (they stick and sink), or hit a shark — a hit stuns the shark
-    // for a few seconds. They never touch the treasure: loot is only pocketed
-    // by swimming over it.
+    // a rock (they stick and sink), or hit a shark — a hit is a trade-off:
+    // the shark learns exactly where the diver is and comes hunting, but every
+    // hit slows that shark down for the rest of the dive. They never touch the
+    // treasure: loot is only pocketed by swimming over it.
     for (let i = state.harpoons.length - 1; i >= 0; i -= 1) {
       const h = state.harpoons[i];
       h.x += h.dx * HARPOON.speed * dt;
@@ -545,17 +557,24 @@ export function createWorld(random) {
       }
       if (!spent) {
         for (const shark of state.sharks) {
-          if (shark.state === 'stunned') continue;
           const dx = shark.x - h.x;
           const dy = shark.y - h.y;
           if (dx * dx + dy * dy < (SHARK.radius + HARPOON.radius) * (SHARK.radius + HARPOON.radius)) {
-            shark.state = 'stunned';
-            shark.stunTimer = HARPOON.stunSeconds;
-            shark.suspicion = 0;
+            // The trade-off, in one place: the spear tells the shark exactly
+            // where the diver is — it turns and hunts that spot — and it
+            // slows the shark down, one hit at a time, for the rest of the
+            // dive. A shark already winding up or lunging stays on its
+            // attack; any other state turns into a fresh chase. Five hits
+            // reach the 60% cap; a sixth hit still reveals the diver.
+            shark.slowHits = (shark.slowHits || 0) + 1;
+            shark.lastSeen.x = state.player.x;
+            shark.lastSeen.y = state.player.y;
+            shark.suspicion = 1;
             shark.attackCooldown = 0;
-            shark.windupTimer = 0;
-            shark.lungeTimer = 0;
-            shark.recoverTimer = 0;
+            if (shark.state !== 'windup' && shark.state !== 'lunge') {
+              shark.state = 'chase';
+              shark.loseTimer = SHARK.blindGiveUpSeconds;
+            }
             events |= EVENT_HARPOON_HIT;
             spent = true;
             break;
@@ -579,12 +598,15 @@ export function createWorld(random) {
       }
     }
 
-    // Who sees the diver right now? Sharks mid-attack or stunned do not detect:
-    // a winding-up shark is committed to its lunge, a stunned one sees nothing.
+    // Who sees the diver right now? Sharks mid-attack do not detect: a
+    // winding-up shark is committed to its lunge, a lunging or recovering one
+    // is spent. A harpoon-hit shark detects like any other — it knows where
+    // you are, that is the point of the trade-off. Slowed sharks detect just
+    // as well: the slow is in the fins, not the eyes.
     let seen = false;
     const sneakFactor = player.sneaking ? 0.5 : 1;
     for (const shark of state.sharks) {
-      if (shark.state === 'stunned' || shark.state === 'windup' || shark.state === 'lunge' || shark.state === 'recover') continue;
+      if (shark.state === 'windup' || shark.state === 'lunge' || shark.state === 'recover') continue;
       const dist = sharkSeesPlayer(shark);
       if (dist > 0 && player.invulnerable === 0) {
         seen = true;
@@ -627,7 +649,7 @@ export function createWorld(random) {
     if (seen) {
       let rise = 0;
       for (const shark of state.sharks) {
-        if (shark.state !== 'stunned' && sharkSeesPlayer(shark) > 0 && player.invulnerable === 0) rise += ALARM.sharkPerSecond;
+        if (sharkSeesPlayer(shark) > 0 && player.invulnerable === 0) rise += ALARM.sharkPerSecond;
       }
       for (const sonar of state.sonars) {
         if (sonar.spotted) rise += SONAR.alarmPerSecond;

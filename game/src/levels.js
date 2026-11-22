@@ -34,7 +34,7 @@ export const LEVELS = [
   {
     name: '1 · The Coral Reef',
     theme: 'reef',
-    hint: 'One shark, one sonar camera. Learn the cones, shoot the harpoon with Space if it spots you, take the pearl, then dive into the whirlpool.',
+    hint: 'One shark, one sonar camera. Learn the cones, slow the shark with the harpoon (Space) if it spots you — but it will know where you are — take the pearl, then dive into the whirlpool.',
     timeLimit: 120,
     entry: { x: 64, y: 360 },
     exit: { x: 1172, y: 300, w: 64, h: 120 },
@@ -50,6 +50,13 @@ export const LEVELS = [
       rock(180, 280, 56, 44, 'rock'),
       rock(980, 300, 36, 110, 'pillar'),
       rock(1080, 180, 60, 44, 'rock'),
+      // Rock pass: four more boulder clusters, so the reef is denser and the
+      // chase has more corners to break around — the loot, kelp and whirlpool
+      // stay reachable, and the mid pillar anchor is untouched. (Rocks 4 → 8.)
+      rock(120, 300, 56, 44, 'rock'),
+      rock(360, 460, 64, 48, 'rock'),
+      rock(760, 170, 60, 48, 'rock'),
+      rock(880, 420, 64, 48, 'rock'),
     ],
     kelp: [
       kelp(120, 90, 100, 80),
@@ -71,7 +78,7 @@ export const LEVELS = [
   {
     name: '2 · The Shipwreck',
     theme: 'wreck',
-    hint: 'Two sharks cross the wreck and they bite now — dodge the wind-up, hide in the kelp, or stun one with the harpoon. The sapphire sits in the middle.',
+    hint: 'Two sharks cross the wreck and they bite now — dodge the wind-up, hide in the kelp, or slow one with the harpoon — but it will know where you are. The sapphire sits in the middle.',
     timeLimit: 120,
     entry: { x: 64, y: 360 },
     exit: { x: 1172, y: 300, w: 64, h: 120 },
@@ -88,6 +95,13 @@ export const LEVELS = [
       rock(930, 340, 36, 100, 'pillar'),
       rock(300, 280, 56, 44, 'rock'),
       rock(1080, 120, 64, 48, 'rock'),
+      // Rock pass: four more boulder clusters — the wreck is denser now, with
+      // more corners to break a chase around. Loot, kelp and whirlpool stay open.
+      // (Rocks 4 → 8.)
+      rock(160, 180, 56, 44, 'rock'),
+      rock(440, 420, 64, 48, 'rock'),
+      rock(700, 420, 64, 48, 'rock'),
+      rock(1080, 420, 56, 44, 'rock'),
     ],
     kelp: [
       kelp(120, 540, 110, 90),
@@ -112,7 +126,7 @@ export const LEVELS = [
   {
     name: '3 · The Deep Trench',
     theme: 'trench',
-    hint: 'Three sharks, three sonar cameras, one chest of gold. Ink the cameras, stun the sharks, swim, and escape through the whirlpool.',
+    hint: 'Three sharks, three sonar cameras, one chest of gold. Ink the cameras, slow the sharks with the harpoon (each hit gives away your position), swim, and escape through the whirlpool.',
     timeLimit: 150,
     entry: { x: 64, y: 360 },
     exit: { x: 1172, y: 300, w: 64, h: 120 },
@@ -131,6 +145,15 @@ export const LEVELS = [
       rock(960, 320, 36, 100, 'pillar'),
       rock(740, 330, 64, 50, 'rock'),
       rock(240, 280, 56, 46, 'rock'),
+      // Rock pass: five more boulder clusters — the trench is the densest dive
+      // now, with a rock to break line of sight almost everywhere. Loot, kelp
+      // and whirlpool stay reachable, and no patrol lane is blocked.
+      // (Rocks 4 → 9.)
+      rock(120, 180, 56, 44, 'rock'),
+      rock(380, 120, 56, 44, 'rock'),
+      rock(800, 120, 56, 44, 'rock'),
+      rock(260, 500, 56, 44, 'rock'),
+      rock(1080, 440, 64, 48, 'rock'),
     ],
     kelp: [
       kelp(120, 540, 110, 90),

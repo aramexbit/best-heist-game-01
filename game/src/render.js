@@ -117,8 +117,9 @@ export function createRenderer(canvas) {
     // Pebbles: small grey-blue stones scattered over the whole seabed. Kept
     // sparse on purpose — each one is high-frequency detail that costs bytes
     // in the dossier screenshots, and the floor is already busy with tiles,
-    // cracks and caustics.
-    for (let i = 0; i < 16; i += 1) {
+    // cracks and caustics. Trimmed again for the rock pass: the denser walls
+    // already fill the frame, so the floor needs fewer stones.
+    for (let i = 0; i < 10; i += 1) {
       const px = (i * 173 + 41) % FIELD.width;
       const py = (i * 97 + 53) % FIELD.height;
       ctx.fillStyle = i % 3 === 0 ? theme.pebble : theme.pebbleDark;
@@ -131,7 +132,7 @@ export function createRenderer(canvas) {
     // Shells: little pale arcs scattered on the seabed.
     ctx.strokeStyle = 'rgba(240, 230, 210, 0.6)';
     ctx.lineWidth = 2;
-    for (let i = 0; i < 10; i += 1) {
+    for (let i = 0; i < 6; i += 1) {
       const sx = (i * 211 + 90) % FIELD.width;
       const sy = (i * 139 + 70) % FIELD.height;
       ctx.beginPath();
@@ -160,7 +161,7 @@ export function createRenderer(canvas) {
     // Cracks: short jagged dark lines scattered on the tiles.
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
     ctx.lineWidth = 1.5;
-    for (let i = 0; i < 3; i += 1) {
+    for (let i = 0; i < 2; i += 1) {
       let cx0 = (i * 263 + 120) % FIELD.width;
       let cy0 = (i * 179 + 80) % FIELD.height;
       ctx.beginPath();
@@ -173,10 +174,12 @@ export function createRenderer(canvas) {
       ctx.stroke();
     }
 
-    // Caustics: wavy nets of light crawling over the seabed.
+    // Caustics: wavy nets of light crawling over the seabed. Two nets, not
+    // three: each one is a full-width wavy path, and the dossier screenshots
+    // pay for every wiggle.
     ctx.strokeStyle = 'rgba(255, 255, 220, 0.10)';
     ctx.lineWidth = 2;
-    for (let i = 0; i < 3; i += 1) {
+    for (let i = 0; i < 2; i += 1) {
       const y = 120 + i * 200;
       const drift = Math.sin(world.state.elapsed * 0.6 + i * 1.3) * 26;
       ctx.beginPath();
@@ -203,7 +206,7 @@ export function createRenderer(canvas) {
 
     // Decorative reef fish: tiny, colourful, far away — the frame stays busy.
     const fishColors = ['#ff8c42', '#4fc3f7', '#ffd166', '#ff7eb6'];
-    for (let i = 0; i < 3; i += 1) {
+    for (let i = 0; i < 2; i += 1) {
       const lane = 120 + (i % 4) * 150;
       const speed = 22 + (i % 3) * 9;
       const dir = i % 2 === 0 ? 1 : -1;
@@ -1052,8 +1055,8 @@ export function createRenderer(canvas) {
   /** A shark in side profile, facing `dir`: darker and meaner than the first
    * version — a slate-grey torpedo body, glowing red eyes, pale scars across
    * the back, a firm jaw line. When it attacks, the jaw drops wide open and
-   * shows two rows of sharp white teeth; when a harpoon stuns it, the eyes go
-   * crossed and stars circle its head. It rotates to face where it swims. */
+   * shows two rows of sharp white teeth; every harpoon hit slows it down and
+   * leaves one more gold chevron under it. It rotates to face where it swims. */
   function drawShark(world, shark, chasing) {
     const elapsed = world.state.elapsed;
     // Wind-up shake: the shark rears and trembles before it lunges.
@@ -1134,32 +1137,20 @@ export function createRenderer(canvas) {
       ctx.lineTo(14 - g * 3, 2);
       ctx.stroke();
     }
-    // Eye near the snout: red and glowing — brighter while hunting. A stunned
-    // shark gets crossed-out eyes instead.
+    // Eye near the snout: red and glowing — brighter while hunting.
     const eyeGlow = chasing ? 0.9 : 0.55;
     ctx.fillStyle = 'rgba(255, 59, 48, ' + (eyeGlow * 0.45) + ')';
     ctx.beginPath();
     ctx.arc(24, -3, 5, 0, Math.PI * 2);
     ctx.fill();
-    if (shark.state === 'stunned') {
-      ctx.strokeStyle = '#101c2e';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(21, -6);
-      ctx.lineTo(27, 0);
-      ctx.moveTo(27, -6);
-      ctx.lineTo(21, 0);
-      ctx.stroke();
-    } else {
-      ctx.fillStyle = PALETTE.sharkEye;
-      ctx.beginPath();
-      ctx.arc(24, -3, 2.6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#101c2e';
-      ctx.beginPath();
-      ctx.arc(24, -3, 1.2, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    ctx.fillStyle = PALETTE.sharkEye;
+    ctx.beginPath();
+    ctx.arc(24, -3, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#101c2e';
+    ctx.beginPath();
+    ctx.arc(24, -3, 1.2, 0, Math.PI * 2);
+    ctx.fill();
     // Jaw: a firm dark line at rest; when the shark attacks the lower jaw
     // drops open and both jaws show sharp white teeth.
     if (jawOpen > 0) {
@@ -1215,15 +1206,21 @@ export function createRenderer(canvas) {
       ctx.stroke();
     }
     ctx.restore();
-    if (shark.state === 'stunned') {
-      // Dizzy stars circling the head while the harpoon stun lasts.
-      ctx.fillStyle = '#ffd166';
-      for (let s = 0; s < 3; s += 1) {
-        const a = elapsed * 2 + (s * Math.PI * 2) / 3;
-        const sx = shark.x + Math.cos(a) * 26;
-        const sy = shark.y - 24 + Math.sin(a) * 6;
+    if (shark.slowHits > 0) {
+      // Harpoon hits slow the shark down: one small gold chevron under it
+      // per hit (up to five), so the diver can see at a glance how worn
+      // down this shark already is. Five hits reach the 60% cap, so five
+      // is the most chevrons shown.
+      ctx.fillStyle = PALETTE.gold;
+      const n = Math.min(shark.slowHits, 5);
+      for (let s = 0; s < n; s += 1) {
+        const sx = shark.x - (n - 1) * 4 + s * 8;
+        const sy = shark.y + 26;
         ctx.beginPath();
-        ctx.arc(sx, sy, 2.5, 0, Math.PI * 2);
+        ctx.moveTo(sx - 3, sy);
+        ctx.lineTo(sx + 3, sy);
+        ctx.lineTo(sx, sy + 4);
+        ctx.closePath();
         ctx.fill();
       }
     }
@@ -1571,10 +1568,13 @@ export function createRenderer(canvas) {
   }
 
   /** Control hints along the bottom edge, like the reference's bar. The harpoon
-   * dot is gold while the gun is ready, grey while it cools down. */
+   * dot is gold while the gun is ready, grey while it cools down — and the
+   * label says the trade-off out loud: the harpoon slows the shark, but it
+   * tells the shark exactly where you are. The bar is the one place the
+   * trade-off stays visible the whole dive. */
   function drawControlsBar(world) {
     const harpoonReady = world.state.harpoonCooldown <= 0;
-    const left = 'WASD swim  ·  SHIFT sneak  ·  Q ink burst  ·  SPACE harpoon ';
+    const left = 'WASD swim  ·  SHIFT sneak  ·  Q ink burst  ·  SPACE harpoon (slows, reveals you) ';
     const right = '  ·  Click steer';
     ctx.font = '12px ' + FONT;
     const totalW = ctx.measureText(left).width + 16 + ctx.measureText(right).width;
@@ -1787,7 +1787,7 @@ export function createRenderer(canvas) {
           'sonar cannot see through it. Read the dashed patrol lines and',
           'guess where each shark swims next.',
           'Spotted sharks wind up and lunge — dodge, hide, or shoot back:',
-          'a harpoon stuns a shark for a few seconds.',
+          'a harpoon hit slows a shark but gives away where you are.',
           '',
           'WASD / arrows — swim      Shift — slow swim (harder to spot)',
           'Q — ink burst, blinds sonar and sharks (2 per dive)      Space — fire the harpoon',

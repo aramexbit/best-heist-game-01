@@ -26,8 +26,11 @@ portal spinning at the far edge, waiting to carry the loot to another dimension.
   the wind-up, duck into the kelp (it loses your trail), break line of sight
   around a rock, or blind it with ink.
 - **Shoot back.** Space fires the harpoon gun toward the mouse cursor (or the
-  way the diver faces). A hit stuns a shark for a few seconds — it never kills,
-  so the reef stays dangerous. The gun needs a short cooldown between shots.
+  way the diver faces). A hit is a trade-off: the shark learns exactly where
+  you are and comes hunting — but every hit slows that shark down (−12% swim
+  speed per hit, up to −60% for the dive). It never kills, so the reef stays
+  dangerous. The gun needs a short cooldown between shots. The slow is per
+  shark, so spreading shots across sharks wastes it — focus one shark down.
 - **Escape.** Reach the whirlpool before your air runs out. Score is treasure
   plus a time bonus, minus lockdown penalties.
 
@@ -38,7 +41,7 @@ portal spinning at the far edge, waiting to carry the loot to another dimension.
 | WASD / arrow keys | Swim (hold the mouse button to steer instead) |
 | Shift | Slow swim — slower, but half as easy to spot |
 | Q | Ink burst, blinds the sonar cameras and the sharks for 8 seconds (2 charges per dive) |
-| Space | Fire the harpoon toward the mouse cursor (stuns a shark for a few seconds) |
+| Space | Fire the harpoon toward the mouse cursor (slows the shark, but tells it where you are) |
 | P / Esc | Pause |
 | M | Mute |
 | Space / click | Confirm on menus |
@@ -64,7 +67,7 @@ outside the grader).
 ## Layout
 
 - `game/index.html` — the page; `game/src/main.js` — the loop and screens.
-- `game/src/world.js` — the rules: diver, sharks, sonar cameras, kelp, treasure, alarm, score. Sharks wind up and lunge when they spot you; the harpoon gun stuns them.
+- `game/src/world.js` — the rules: diver, sharks, sonar cameras, kelp, treasure, alarm, score. Sharks wind up and lunge when they spot you; the harpoon gun slows them but gives away your position.
 - `game/src/levels.js` — the three dive sites: stone-block walls, boulder clusters and pillars. `game/src/render.js` — all drawing, hand-drawn in canvas.
 - `game/src/input.js` — keyboard + pointer (Space fires the harpoon at the cursor). `game/src/audio.js` — WebAudio blips.
 - `game/src/shots.js` — the staged screenshot scenes (a cone-aware autopilot

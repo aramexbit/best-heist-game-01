@@ -4,7 +4,7 @@
 // from a hand-placed layout; every frame is the game's own renderer over live state.
 
 import { DIVER, HARPOON, SHARK, STEP } from './config.js';
-import { createWorld, segmentHitsRect } from './world.js';
+import { createWorld, segmentHitsRect, sharkSpeedFactor } from './world.js';
 import { createRandom } from './random.js';
 import { SCREEN_CLEAR, SCREEN_PLAY, SCREEN_TITLE } from './render.js';
 
@@ -124,18 +124,22 @@ export function pilotDirection(world, sneak) {
       if (sd > HARPOON.range - 40) continue;
       let vx = 0;
       let vy = 0;
+      // Lead with the shark's real speed: a harpoon-slowed shark moves
+      // slower than the book numbers, and the spear must meet it there.
+      // At the 60% cap the lead is nearly half what the book numbers say.
+      const factor = sharkSpeedFactor(shark);
       if (shark.state === 'lunge') {
-        vx = shark.lungeDirX * SHARK.lungeSpeed;
-        vy = shark.lungeDirY * SHARK.lungeSpeed;
+        vx = shark.lungeDirX * SHARK.lungeSpeed * factor;
+        vy = shark.lungeDirY * SHARK.lungeSpeed * factor;
       } else if (shark.state === 'windup') {
         vx = 0;
         vy = 0;
       } else if (shark.state === 'patrol') {
-        vx = Math.cos(shark.dir) * shark.speed;
-        vy = Math.sin(shark.dir) * shark.speed;
+        vx = Math.cos(shark.dir) * shark.speed * factor;
+        vy = Math.sin(shark.dir) * shark.speed * factor;
       } else {
-        vx = Math.cos(shark.dir) * SHARK.chaseSpeed;
-        vy = Math.sin(shark.dir) * SHARK.chaseSpeed;
+        vx = Math.cos(shark.dir) * SHARK.chaseSpeed * factor;
+        vy = Math.sin(shark.dir) * SHARK.chaseSpeed * factor;
       }
       const flight = sd / HARPOON.speed;
       const tx = shark.x + vx * flight;
@@ -205,6 +209,13 @@ export function stageShot(id) {
     shark.suspicion = 1;
     shark.loseTimer = 99;
     shark.attackCooldown = 0;
+    // The diver shoots first: the harpoon hit tells the shark exactly where
+    // the diver is (so it comes straight for them) and slows it down — the
+    // new trade-off, caught in the frame as a chasing shark with a gold slow
+    // chevron under it, mid-lunge a moment later. The chevron is the proof
+    // in the frame that the shark was shot.
+    world.step(STEP, { x: 0, y: 0, sneak: false, ink: false, fire: true, aimX: 560, aimY: 120 }, false);
+    runSteps(world, 0.4, IDLE);
     let lunging = false;
     for (let i = 0; i < Math.round(2 / STEP) && !lunging; i += 1) {
       world.step(STEP, IDLE, false);
