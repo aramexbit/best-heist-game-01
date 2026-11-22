@@ -25,8 +25,10 @@ portal spinning at the far edge, waiting to carry the loot to another dimension.
   A shark that spots you winds up and lunges with its jaws open — dodge during
   the wind-up, duck into the kelp (it loses your trail), break line of sight
   around a rock, or blind it with ink.
-- **Shoot back.** Space fires the harpoon gun toward the mouse cursor (or the
-  way the diver faces). A hit is a trade-off: the shark learns exactly where
+- **Shoot back.** Click anywhere in the water to fire the harpoon gun at that
+  exact spot (or press Space to fire toward the mouse cursor, or tap the
+  on-screen HARPOON button — toward the cursor on a mouse, the way the diver
+  faces on touch). A hit is a trade-off: the shark learns exactly where
   you are and comes hunting — but every hit slows that shark down (−12% swim
   speed per hit, up to −60% for the dive). It never kills, so the reef stays
   dangerous. The gun needs a short cooldown between shots. The slow is per
@@ -38,10 +40,12 @@ portal spinning at the far edge, waiting to carry the loot to another dimension.
 
 | Key | Action |
 | --- | --- |
-| WASD / arrow keys | Swim (hold the mouse button to steer instead) |
+| WASD / arrow keys | Swim |
 | Shift | Slow swim — slower, but half as easy to spot |
 | Q | Ink burst, blinds the sonar cameras and the sharks for 8 seconds (2 charges per dive) |
-| Space | Fire the harpoon toward the mouse cursor (slows the shark, but tells it where you are) |
+| Click | Fire the harpoon at the clicked spot (slows the shark, but tells it where you are) |
+| Space | Fire the harpoon toward the mouse cursor |
+| HARPOON button (bottom right) | Fire the harpoon — toward the cursor on a mouse, the way the diver faces on touch |
 | P / Esc | Pause |
 | M | Mute |
 | Space / click | Confirm on menus |
@@ -68,8 +72,8 @@ outside the grader).
 
 - `game/index.html` — the page; `game/src/main.js` — the loop and screens.
 - `game/src/world.js` — the rules: diver, sharks, sonar cameras, kelp, treasure, alarm, score. Sharks wind up and lunge when they spot you; the harpoon gun slows them but gives away your position.
-- `game/src/levels.js` — the three dive sites: stone-block walls, boulder clusters and pillars. `game/src/render.js` — all drawing, hand-drawn in canvas.
-- `game/src/input.js` — keyboard + pointer (Space fires the harpoon at the cursor). `game/src/audio.js` — WebAudio blips.
+- `game/src/levels.js` — the three dive sites: stone-block walls, boulder clusters and pillars, bent into winding switchback corridors. `game/src/render.js` — all drawing, hand-drawn in canvas.
+- `game/src/input.js` — keyboard + pointer (a click fires the harpoon at that spot; the HARPOON button fires toward the cursor or the way the diver faces). `game/src/audio.js` — WebAudio blips.
 - `game/src/shots.js` — the staged screenshot scenes (a cone-aware autopilot
   plays the game for real) and `shots.json` lists the four captures.
 - `main.ts` — the build script. `serve.ts` — the local static server.

@@ -1,14 +1,26 @@
 // Keyboard and pointer input for Sunken Vault. Held keys give a steering vector;
-// one-shot presses (confirm, pause, ink burst, harpoon, mute) are queued as bit
-// flags and taken once by the loop, so a press between two frames is never lost
-// or counted twice. Holding the mouse button steers the diver toward the pointer
-// instead. The pointer's last position is kept as the harpoon's aim point.
+// one-shot presses (confirm, pause, ink burst, harpoon, mute, click-fire) are
+// queued as bit flags and taken once by the loop, so a press between two frames
+// is never lost or counted twice.
+//
+// Clicking is how you shoot: a click on the game area fires the harpoon AT the
+// clicked spot, and the on-screen HARPOON button (bottom right, beside the
+// minimap) fires toward the cursor on a mouse, or the way the diver faces on
+// touch. Clicking never steers the diver any more — swimming is WASD/arrows
+// only. The pointer's last mouse position is kept as the harpoon's aim point
+// for Space and for the button.
+
+import { HARPOON_BUTTON } from './config.js';
 
 export const ACTION_CONFIRM = 1;
 export const ACTION_PAUSE = 2;
 export const ACTION_INK = 4;
 export const ACTION_MUTE = 8;
 export const ACTION_HARPOON = 16;
+/** A click on the game area (not the button): fire at the clicked spot. When
+ * a click and a Space press land in the same frame, the loop reads the click
+ * first — the clicked spot wins over the cursor. */
+export const ACTION_CLICK_FIRE = 32;
 
 const LEFT = new Set(['ArrowLeft', 'KeyA']);
 const RIGHT = new Set(['ArrowRight', 'KeyD']);
@@ -21,6 +33,17 @@ const INK = new Set(['KeyQ']);
 const MUTE = new Set(['KeyM']);
 const HARPOON = new Set(['Space']);
 
+/** True when the field point (x, y) is on the HARPOON button. Pure, so the
+ * headless probe can test the tap target without a DOM. */
+export function harpoonButtonHit(x, y) {
+  return (
+    x >= HARPOON_BUTTON.x &&
+    x < HARPOON_BUTTON.x + HARPOON_BUTTON.w &&
+    y >= HARPOON_BUTTON.y &&
+    y < HARPOON_BUTTON.y + HARPOON_BUTTON.h
+  );
+}
+
 export function createInput(target, toField) {
   let left = false;
   let right = false;
@@ -28,8 +51,12 @@ export function createInput(target, toField) {
   let down = false;
   let sneak = false;
   let actions = 0;
-  let pointer = null;
   let aimClient = null;
+  let clickField = null;
+  /** The button only fires while the game is actually playing — on menus a
+   * tap anywhere is a confirm, even on the button's spot. The loop sets this
+   * every frame from the current screen. */
+  let buttonLive = false;
 
   window.addEventListener('keydown', (event) => {
     if (LEFT.has(event.code)) left = true;
@@ -66,38 +93,50 @@ export function createInput(target, toField) {
     up = false;
     down = false;
     sneak = false;
-    pointer = null;
     aimClient = null;
+    clickField = null;
     actions = 0;
   });
   target.addEventListener('pointerdown', (event) => {
+    // The HARPOON button: fire toward the cursor (mouse hover) or the way the
+    // diver faces (touch, no hover). Never steers, never confirms.
+    if (buttonLive && toField) {
+      const field = toField(event.clientX, event.clientY);
+      if (harpoonButtonHit(field.x, field.y)) {
+        actions |= ACTION_HARPOON;
+        return;
+      }
+    }
+    // Anywhere else: confirm on menus — and, while playing, fire the harpoon
+    // at exactly the spot that was clicked.
     actions |= ACTION_CONFIRM;
-    pointer = { x: event.clientX, y: event.clientY };
-    aimClient = { x: event.clientX, y: event.clientY };
+    if (toField) {
+      clickField = toField(event.clientX, event.clientY);
+      actions |= ACTION_CLICK_FIRE;
+    }
+    if (event.pointerType === 'mouse') aimClient = { x: event.clientX, y: event.clientY };
   });
   target.addEventListener('pointermove', (event) => {
-    // The harpoon aims at the cursor even when the button is not held.
+    // The harpoon aims at the mouse cursor; touch has no hover, so a touch
+    // drag never moves the aim — the button then fires the way the diver
+    // faces. Moving onto the button itself does not move the aim either, so
+    // a player who hovered a shark, then reached for the button, still shoots
+    // at the shark instead of at the bottom-right corner.
+    if (event.pointerType !== 'mouse') return;
+    if (buttonLive && toField) {
+      const field = toField(event.clientX, event.clientY);
+      if (harpoonButtonHit(field.x, field.y)) return;
+    }
     aimClient = { x: event.clientX, y: event.clientY };
-    if (pointer) pointer = { x: event.clientX, y: event.clientY };
-  });
-  target.addEventListener('pointerup', () => {
-    pointer = null;
   });
 
   return {
-    /** Steering vector: -1..1 each way, from keys, or toward the held pointer. */
-    vector(playerX, playerY) {
+    /** Steering vector: -1..1 each way, from the keys only. Clicking never
+     * steers any more — swimming is WASD/arrows, shooting is the click. */
+    vector() {
       const kx = (right ? 1 : 0) - (left ? 1 : 0);
       const ky = (down ? 1 : 0) - (up ? 1 : 0);
-      if (kx !== 0 || ky !== 0) return { x: kx, y: ky, sneak };
-      if (pointer && toField) {
-        const goal = toField(pointer.x, pointer.y);
-        const dx = goal.x - playerX;
-        const dy = goal.y - playerY;
-        const len = Math.hypot(dx, dy);
-        if (len > 12) return { x: dx / len, y: dy / len, sneak };
-      }
-      return { x: 0, y: 0, sneak };
+      return { x: kx, y: ky, sneak };
     },
     /** The one-shot presses since the last call, as ACTION_* flags. */
     takeActions() {
@@ -106,9 +145,18 @@ export function createInput(target, toField) {
       return taken;
     },
     /** The cursor's last position in client coordinates, or null before the
-     * pointer has ever moved — the harpoon's aim point. */
+     * pointer has ever moved — the harpoon's aim point for Space and the
+     * button. */
     aim() {
       return aimClient;
+    },
+    /** The last clicked spot in field coordinates, or null before any click. */
+    clickPoint() {
+      return clickField;
+    },
+    /** Whether the HARPOON button fires right now (only while playing). */
+    setHarpoonButtonLive(live) {
+      buttonLive = Boolean(live);
     },
   };
 }

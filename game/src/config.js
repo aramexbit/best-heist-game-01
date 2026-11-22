@@ -61,7 +61,11 @@ export const SHARK = {
  * that shark down, 12% per hit up to 60% off, for the rest of the dive. It
  * never kills, so the reef stays dangerous. Ammo is unlimited but the gun
  * needs a short cooldown between shots. Five hits reach the cap, so a
- * much-shot shark swims at 40% speed. */
+ * much-shot shark swims at 40% speed.
+ *
+ * Clicking is the main way to shoot: a click on the game area fires at exactly
+ * the spot that was clicked. The on-screen HARPOON button (below) fires
+ * toward the cursor on a mouse, or the way the diver faces on touch. */
 export const HARPOON = {
   speed: 520,
   range: 420,
@@ -71,6 +75,16 @@ export const HARPOON = {
   slowPerHit: 0.12,
   maxSlow: 0.6,
 };
+
+/** The on-screen HARPOON button: bottom-right, in the bottom HUD row left of
+ * the minimap (18px clear of it), so a mouse click or a touch tap fires
+ * without a keyboard. 150x40 field px — big enough to tap on a phone. Field
+ * coordinates (the 1280x720 playfield): the spot sits clear of every loot
+ * point, kelp bed and label in all three levels — its top edge sits 2px below
+ * the lowest loot value label, so no price tag is ever buried under it. Tap
+ * it to fire toward the cursor (mouse) or the way the diver faces (touch);
+ * a click anywhere else in the field fires at that spot instead. */
+export const HARPOON_BUTTON = { x: 950, y: 676, w: 150, h: 40 };
 
 /** A sonar camera on the seabed sweeps its cone back and forth; the ink burst switches it off for a while. */
 export const SONAR = {

@@ -21,7 +21,7 @@ import {
   EVENT_WINDUP,
 } from './world.js';
 import { createRandom } from './random.js';
-import { ACTION_CONFIRM, ACTION_HARPOON, ACTION_INK, ACTION_MUTE, ACTION_PAUSE, createInput } from './input.js';
+import { ACTION_CLICK_FIRE, ACTION_CONFIRM, ACTION_HARPOON, ACTION_INK, ACTION_MUTE, ACTION_PAUSE, createInput } from './input.js';
 import { audio } from './audio.js';
 import {
   createRenderer,
@@ -144,13 +144,22 @@ function stepGame() {
     screen = { type: SCREEN_PAUSE, world };
     return;
   }
-  const vector = input.vector(world.state.player.x, world.state.player.y);
-  // Space fires the harpoon toward the cursor; with no cursor yet (keyboard
-  // only) it flies the way the diver faces.
+  const vector = input.vector();
+  // Clicking is the main way to shoot: a click on the game area fires the
+  // harpoon at exactly the spot that was clicked. Space (or the on-screen
+  // HARPOON button) fires toward the cursor instead — or the way the diver
+  // faces when there is no cursor yet (keyboard only, or touch).
   let fire = false;
   let aimX;
   let aimY;
-  if (actions & ACTION_HARPOON) {
+  if (actions & ACTION_CLICK_FIRE) {
+    const point = input.clickPoint();
+    if (point) {
+      aimX = point.x;
+      aimY = point.y;
+      fire = true;
+    }
+  } else if (actions & ACTION_HARPOON) {
     const aim = input.aim();
     const player = world.state.player;
     if (aim) {
@@ -178,6 +187,9 @@ function stepGame() {
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.1);
   last = now;
+  // The on-screen HARPOON button only fires while actually playing — on menus
+  // a tap anywhere is a confirm, even on the button's spot.
+  input.setHarpoonButtonLive(screen.type === SCREEN_PLAY);
   accumulator += dt;
   while (accumulator >= STEP) {
     stepGame();

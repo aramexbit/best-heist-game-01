@@ -26,7 +26,7 @@
 // crosses, sharks with red sense cones, sonar cameras (dome cameras on seabed
 // mounts, labelled SONAR), the treasure, and the ALARM meter in the HUD.
 
-import { ALARM, SONAR, FIELD, FONT, SHARK, HARPOON, LOOT, PALETTE, DIVER, THEMES } from './config.js';
+import { ALARM, SONAR, FIELD, FONT, SHARK, HARPOON, HARPOON_BUTTON, LOOT, PALETTE, DIVER, THEMES } from './config.js';
 
 export const SCREEN_TITLE = 'title';
 export const SCREEN_PLAY = 'play';
@@ -117,9 +117,9 @@ export function createRenderer(canvas) {
     // Pebbles: small grey-blue stones scattered over the whole seabed. Kept
     // sparse on purpose — each one is high-frequency detail that costs bytes
     // in the dossier screenshots, and the floor is already busy with tiles,
-    // cracks and caustics. Trimmed again for the rock pass: the denser walls
-    // already fill the frame, so the floor needs fewer stones.
-    for (let i = 0; i < 10; i += 1) {
+    // cracks and caustics. Trimmed again for the winding pass: the bending
+    // walls already fill the frame, so the floor needs fewer stones. Two left.
+    for (let i = 0; i < 2; i += 1) {
       const px = (i * 173 + 41) % FIELD.width;
       const py = (i * 97 + 53) % FIELD.height;
       ctx.fillStyle = i % 3 === 0 ? theme.pebble : theme.pebbleDark;
@@ -132,7 +132,7 @@ export function createRenderer(canvas) {
     // Shells: little pale arcs scattered on the seabed.
     ctx.strokeStyle = 'rgba(240, 230, 210, 0.6)';
     ctx.lineWidth = 2;
-    for (let i = 0; i < 6; i += 1) {
+    for (let i = 0; i < 3; i += 1) {
       const sx = (i * 211 + 90) % FIELD.width;
       const sy = (i * 139 + 70) % FIELD.height;
       ctx.beginPath();
@@ -161,7 +161,7 @@ export function createRenderer(canvas) {
     // Cracks: short jagged dark lines scattered on the tiles.
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
     ctx.lineWidth = 1.5;
-    for (let i = 0; i < 2; i += 1) {
+    for (let i = 0; i < 1; i += 1) {
       let cx0 = (i * 263 + 120) % FIELD.width;
       let cy0 = (i * 179 + 80) % FIELD.height;
       ctx.beginPath();
@@ -174,12 +174,12 @@ export function createRenderer(canvas) {
       ctx.stroke();
     }
 
-    // Caustics: wavy nets of light crawling over the seabed. Two nets, not
-    // three: each one is a full-width wavy path, and the dossier screenshots
-    // pay for every wiggle.
+    // Caustics: wavy nets of light crawling over the seabed. One net, not
+    // two: each one is a full-width wavy path, and the dossier screenshots
+    // pay for every wiggle — the winding walls already fill the frame.
     ctx.strokeStyle = 'rgba(255, 255, 220, 0.10)';
     ctx.lineWidth = 2;
-    for (let i = 0; i < 2; i += 1) {
+    for (let i = 0; i < 1; i += 1) {
       const y = 120 + i * 200;
       const drift = Math.sin(world.state.elapsed * 0.6 + i * 1.3) * 26;
       ctx.beginPath();
@@ -192,8 +192,10 @@ export function createRenderer(canvas) {
     }
 
     // Light shafts: golden beams falling from the surface, swaying slowly.
+    // One, not two — the winding walls already fill the frame, and the cover
+    // shot was 1,630 bytes over the dossier cap.
     ctx.fillStyle = theme.shaft;
-    for (let i = 0; i < 3; i += 1) {
+    for (let i = 0; i < 1; i += 1) {
       const topX = 220 + i * 430 + Math.sin(world.state.elapsed * 0.25 + i * 2) * 24;
       ctx.beginPath();
       ctx.moveTo(topX - 55, 0);
@@ -204,38 +206,16 @@ export function createRenderer(canvas) {
       ctx.fill();
     }
 
-    // Decorative reef fish: tiny, colourful, far away — the frame stays busy.
-    const fishColors = ['#ff8c42', '#4fc3f7', '#ffd166', '#ff7eb6'];
-    for (let i = 0; i < 2; i += 1) {
-      const lane = 120 + (i % 4) * 150;
-      const speed = 22 + (i % 3) * 9;
-      const dir = i % 2 === 0 ? 1 : -1;
-      const fx = (((i * 311 + world.state.elapsed * speed * dir) % 1500) + 1500) % 1500 - 110;
-      const fy = lane + Math.sin(world.state.elapsed * 1.2 + i * 3) * 8;
-      ctx.save();
-      ctx.translate(fx, fy);
-      ctx.scale(dir, 1);
-      ctx.globalAlpha = 0.5;
-      ctx.fillStyle = fishColors[i % fishColors.length];
-      ctx.beginPath();
-      ctx.ellipse(0, 0, 11, 5, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(-10, 0);
-      ctx.lineTo(-17, -5);
-      ctx.lineTo(-17, 5);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-      ctx.globalAlpha = 1;
-    }
+    // Decorative reef fish: removed — the frame is already busy with the
+    // winding walls, and the cover shot was over the dossier cap.
 
-    // Ambient bubble streams rising from vents in the seabed.
+    // Ambient bubble streams rising from vents in the seabed. One vent, three
+    // bubbles — the winding walls already fill the frame.
     ctx.strokeStyle = PALETTE.bubble;
     ctx.lineWidth = 1.5;
-    for (let v = 0; v < 2; v += 1) {
+    for (let v = 0; v < 1; v += 1) {
       const bx = 300 + v * 340;
-      for (let b = 0; b < 4; b += 1) {
+      for (let b = 0; b < 3; b += 1) {
         const t = (world.state.elapsed * 0.25 + b * 0.25 + v * 0.13) % 1;
         const by = 690 - t * 620;
         const br = 2 + t * 4;
@@ -1567,15 +1547,16 @@ export function createRenderer(canvas) {
     ctx.stroke();
   }
 
-  /** Control hints along the bottom edge, like the reference's bar. The harpoon
-   * dot is gold while the gun is ready, grey while it cools down — and the
-   * label says the trade-off out loud: the harpoon slows the shark, but it
-   * tells the shark exactly where you are. The bar is the one place the
-   * trade-off stays visible the whole dive. */
+  /** Control hints along the bottom edge, like the reference's bar. Clicking
+   * fires the harpoon at the clicked spot (the main way to shoot); the dot is
+   * gold while the gun is ready, grey while it cools down — and the label
+   * says the trade-off out loud: the harpoon slows the shark, but it tells
+   * the shark exactly where you are. The bar is the one place the trade-off
+   * stays visible the whole dive. */
   function drawControlsBar(world) {
     const harpoonReady = world.state.harpoonCooldown <= 0;
-    const left = 'WASD swim  ·  SHIFT sneak  ·  Q ink burst  ·  SPACE harpoon (slows, reveals you) ';
-    const right = '  ·  Click steer';
+    const left = 'WASD swim  ·  SHIFT sneak  ·  Q ink burst  ·  Click fire harpoon at that spot  ·  SPACE harpoon (slows, reveals you) ';
+    const right = '';
     ctx.font = '12px ' + FONT;
     const totalW = ctx.measureText(left).width + 16 + ctx.measureText(right).width;
     ctx.fillStyle = 'rgba(3, 16, 28, 0.7)';
@@ -1589,6 +1570,50 @@ export function createRenderer(canvas) {
     ctx.fillText(harpoonReady ? '●' : '○', dotX, 702);
     ctx.fillStyle = PALETTE.muted;
     ctx.fillText(right, dotX + 16, 702);
+  }
+
+  /** The on-screen HARPOON button: bottom right, left of the minimap, in the
+   * bottom HUD row. Gold and bright while the gun is ready, dimmed grey while
+   * it cools down — the same gold/grey language as the dot in the control bar.
+   * A spear icon and the HARPOON label, big enough to tap on a phone. Only
+   * drawn while actually playing; on menus the spot is just seabed. */
+  function drawHarpoonButton(world) {
+    const ready = world.state.harpoonCooldown <= 0;
+    const b = HARPOON_BUTTON;
+    ctx.fillStyle = ready ? 'rgba(242, 201, 76, 0.16)' : 'rgba(3, 16, 28, 0.55)';
+    roundRect(ctx, b.x, b.y, b.w, b.h, 10);
+    ctx.fill();
+    ctx.strokeStyle = ready ? PALETTE.gold : '#5d6f83';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // Spear icon: a diagonal shaft with a barbed head, pointing up-right.
+    const ix = b.x + 12;
+    const iy = b.y + b.h / 2;
+    ctx.strokeStyle = ready ? PALETTE.gold : '#8b98a8';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(ix, iy + 10);
+    ctx.lineTo(ix + 22, iy - 10);
+    ctx.stroke();
+    ctx.fillStyle = ready ? PALETTE.gold : '#8b98a8';
+    ctx.beginPath();
+    ctx.moveTo(ix + 28, iy - 14);
+    ctx.lineTo(ix + 18, iy - 12);
+    ctx.lineTo(ix + 22, iy - 4);
+    ctx.closePath();
+    ctx.fill();
+    // Fletching: two short ticks at the tail.
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(ix, iy + 10);
+    ctx.lineTo(ix + 6, iy + 4);
+    ctx.moveTo(ix, iy + 10);
+    ctx.lineTo(ix - 2, iy + 4);
+    ctx.stroke();
+    ctx.fillStyle = ready ? PALETTE.gold : '#8b98a8';
+    ctx.font = 'bold 15px ' + FONT;
+    ctx.textAlign = 'left';
+    ctx.fillText('HARPOON', b.x + 44, b.y + b.h / 2 + 5);
   }
 
   function drawHud(world) {
@@ -1773,6 +1798,7 @@ export function createRenderer(canvas) {
       drawMessage(world);
       drawMinimap(world);
       drawControlsBar(world);
+      if (screen.type === SCREEN_PLAY) drawHarpoonButton(world);
     }
     // Domes go on top of the HUD (and of the title dimming), so a sonar camera
     // on the top wall is always visible, never buried under a bar or a panel.
@@ -1790,8 +1816,9 @@ export function createRenderer(canvas) {
           'a harpoon hit slows a shark but gives away where you are.',
           '',
           'WASD / arrows — swim      Shift — slow swim (harder to spot)',
-          'Q — ink burst, blinds sonar and sharks (2 per dive)      Space — fire the harpoon',
-          'Click — also steers the diver',
+          'Q — ink burst, blinds sonar and sharks (2 per dive)',
+          'Click — fire the harpoon at that spot      Space — fire toward the cursor',
+          'Tap the HARPOON button (bottom right) to fire on touch screens',
         ],
         'Press Space or click to start'
       );

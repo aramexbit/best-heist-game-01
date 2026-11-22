@@ -11,7 +11,10 @@
 //   pillar — tall narrow stone columns that split a corridor in two.
 // The layouts are tighter than the first version: narrower corridors, more turns,
 // dead-end pockets and alternate routes, so the diver has to read the patrols
-// instead of swimming straight across. The probe-verified anchors stay put: the
+// instead of swimming straight across. The winding pass bent the walls into
+// L-hooks, S-hooks and zigzags — switchback corridors that read as a maze at a
+// glance — while keeping every patrol lane, kelp bed, loot point and the
+// whirlpool open. The probe-verified anchors stay put: the
 // level-1 mid pillar, the kelp beds the probe hides in, and the sonar sight-line
 // the alarm scene parks on.
 
@@ -57,6 +60,20 @@ export const LEVELS = [
       rock(360, 460, 64, 48, 'rock'),
       rock(760, 170, 60, 48, 'rock'),
       rock(880, 420, 64, 48, 'rock'),
+      // Winding pass: three wall chains that bend — L-hooks and a zigzag — so
+      // the reef reads as switchback corridors, not straight lanes. Each chain
+      // ends in a boulder cap so no end looks cut off. The shark patrol lane
+      // (x 466-494), the sonar sight line to the pearl, the mid pillar and the
+      // kelp beds stay open; loot and the whirlpool stay reachable.
+      rock(420, 156, 36, 110),
+      rock(300, 230, 120, 36),
+      rock(264, 224, 48, 44, 'rock'),
+      rock(820, 454, 36, 110),
+      rock(820, 454, 120, 36),
+      rock(940, 448, 48, 44, 'rock'),
+      rock(200, 380, 36, 110),
+      rock(200, 454, 110, 36),
+      rock(310, 448, 48, 44, 'rock'),
     ],
     kelp: [
       kelp(120, 90, 100, 80),
@@ -102,6 +119,19 @@ export const LEVELS = [
       rock(440, 420, 64, 48, 'rock'),
       rock(700, 420, 64, 48, 'rock'),
       rock(1080, 420, 56, 44, 'rock'),
+      // Winding pass: three bending chains — an L-hook off the top block, an
+      // S-hook off the bottom block, and a zigzag arm off the middle wall — so
+      // the wreck's corridors switch back instead of running straight. The
+      // shark patrol lanes (x 386-414 and 866-894) stay open, as do the kelp
+      // beds and the loot.
+      rock(240, 140, 36, 110),
+      rock(240, 214, 130, 36),
+      rock(336, 208, 40, 40, 'rock'),
+      rock(760, 470, 36, 110, 'pillar'),
+      rock(640, 470, 120, 36),
+      rock(604, 464, 48, 44, 'rock'),
+      rock(560, 240, 120, 36),
+      rock(600, 276, 36, 60, 'rock'),
     ],
     kelp: [
       kelp(120, 540, 110, 90),
@@ -154,6 +184,23 @@ export const LEVELS = [
       rock(800, 120, 56, 44, 'rock'),
       rock(260, 500, 56, 44, 'rock'),
       rock(1080, 440, 64, 48, 'rock'),
+      // Winding pass: four bending chains — a zigzag off the top block, an
+      // S-hook between the middle wall and the bottom block, an arm off the
+      // right wall, and an L-hook off the bottom-right block. The three shark
+      // patrol lanes (x 346-374, 686-714, 1006-1034) stay open: the last chain
+      // leaves a 60px gap exactly where the right shark swims. Kelp, loot,
+      // the chest and the whirlpool stay reachable.
+      rock(300, 130, 36, 110),
+      rock(190, 204, 110, 36),
+      rock(154, 198, 48, 44, 'rock'),
+      rock(600, 480, 36, 110, 'pillar'),
+      rock(480, 480, 120, 36),
+      rock(520, 516, 36, 60, 'rock'),
+      rock(920, 200, 72, 36),
+      rock(956, 236, 36, 80, 'rock'),
+      rock(1060, 480, 36, 110, 'pillar'),
+      rock(940, 480, 60, 36),
+      rock(904, 474, 48, 44, 'rock'),
     ],
     kelp: [
       kelp(120, 540, 110, 90),
