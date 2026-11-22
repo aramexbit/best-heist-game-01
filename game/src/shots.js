@@ -184,53 +184,66 @@ export function stageShot(id) {
   }
   if (id === 'play') {
     runPilot(world, 2.5, false);
-    // The cover must read "many sharks" in one second: park the diver in open
-    // water and bring all three reef sharks in close around them — two chasing
-    // with red cones, one winding up with jaws half open and teeth showing —
-    // and a harpoon already in flight toward it. Staging only: the game
-    // itself is untouched (same patrols, same rules, same walls). Each shark
-    // sits in open water with a clear sight line to the diver, so the cones
-    // really point at them and the wind-up is real game logic, not a pose.
+    // The cover must read "many sharks" in one second ON A PHONE: park the
+    // diver DEAD CENTRE and pull all three reef sharks into a tight knot
+    // around them — each within ~105px — so the three bodies, three red
+    // cones and three "!" marks form one dominant cluster in the middle of
+    // the frame, instead of three small sharks lost across it. Staging only:
+    // the game itself is untouched (same patrols, same rules, same walls).
+    // Each shark sits in open water with a clear sight line to the diver, so
+    // the cones really point at them and the wind-up is real game logic.
     const p = world.state.player;
-    p.x = 530;
-    p.y = 210;
+    p.x = 640;
+    p.y = 350;
     p.dirX = 1;
     p.dirY = 0;
+    // The pilot may have left the gun cooling down or a spear in flight;
+    // clear both so the staged shot is the only spear in the frame.
+    world.state.harpoonCooldown = 0;
+    world.state.harpoons = [];
     const sharks = world.state.sharks;
-    // Left-below: clear sight under the winding chain's corner.
-    sharks[0].x = 400;
-    sharks[0].y = 320;
-    sharks[0].dir = Math.atan2(p.y - 320, p.x - 400);
-    sharks[0].state = 'chase';
+    // Above: winding up with 0.15s left, so it is a breath into its lunge —
+    // jaws wide open, teeth out — when the shutter falls.
+    sharks[0].x = 640;
+    sharks[0].y = 245;
+    sharks[0].dir = Math.PI / 2;
+    sharks[0].state = 'windup';
+    sharks[0].windupTimer = 0.15;
     sharks[0].suspicion = 1;
     sharks[0].loseTimer = 99;
     sharks[0].attackCooldown = 0;
     sharks[0].lastSeen = { x: p.x, y: p.y };
-    // Top-right: winding up, jaws half open, teeth out, pulsing red ring.
-    sharks[1].x = 680;
-    sharks[1].y = 180;
-    sharks[1].dir = Math.atan2(p.y - 180, p.x - 680);
-    sharks[1].state = 'windup';
-    sharks[1].windupTimer = SHARK.windupSeconds;
+    // Right: chasing, so close it winds up on the first step — jaws half
+    // open, red cone, "!" — and the diver's spear flies straight at it.
+    sharks[1].x = 745;
+    sharks[1].y = 350;
+    sharks[1].dir = Math.PI;
+    sharks[1].state = 'chase';
     sharks[1].suspicion = 1;
     sharks[1].loseTimer = 99;
     sharks[1].attackCooldown = 0;
     sharks[1].lastSeen = { x: p.x, y: p.y };
-    // Right-below: clear sight over the top of the mid pillar.
-    sharks[2].x = 640;
-    sharks[2].y = 330;
-    sharks[2].dir = Math.atan2(p.y - 330, p.x - 640);
+    // Below: chasing on a long attack cooldown, so it NEVER winds up during
+    // the shot — it keeps swimming at the diver, and a hunting shark is
+    // what keeps the HUD on SPOTTED and the alarm climbing while the other
+    // two are mid-attack (mid-attack sharks do not detect). It starts a
+    // little further out and closes to ~85px by the shutter.
+    sharks[2].x = 675;
+    sharks[2].y = 480;
+    sharks[2].dir = Math.atan2(p.y - 480, p.x - 675);
     sharks[2].state = 'chase';
     sharks[2].suspicion = 1;
     sharks[2].loseTimer = 99;
-    sharks[2].attackCooldown = 0;
+    sharks[2].attackCooldown = 0.5;
     sharks[2].lastSeen = { x: p.x, y: p.y };
-    // The diver shoots first: a spear toward the winding-up shark, caught
-    // mid-flight in the frame — a long bright spear, still well short of
-    // the shark. Two tenths of a second of flight puts it clearly in the
-    // open water between diver and shark.
-    world.step(STEP, { x: 0, y: 0, sneak: false, ink: false, fire: true, aimX: 680, aimY: 180 }, false);
-    runSteps(world, 0.2, IDLE);
+    // Twelve steps total: six idle, then the diver shoots at the shark on
+    // the right, then five more. The wind-up above finishes and the shark
+    // is a breath into its lunge, the right shark is mid-wind-up, the
+    // shark below has closed in — and the spear is still in flight, about
+    // 30px short of its target, so it reads in the frame.
+    runSteps(world, 0.1, IDLE);
+    world.step(STEP, { x: 0, y: 0, sneak: false, ink: false, fire: true, aimX: 745, aimY: 350 }, false);
+    runSteps(world, 0.083, IDLE);
     return { type: SCREEN_PLAY, world };
   }
   if (id === 'sneak') {
@@ -270,6 +283,18 @@ export function stageShot(id) {
     shark2.loseTimer = 99;
     shark2.attackCooldown = 0;
     shark2.lastSeen = { x: 640, y: 120 };
+    // The third shark joins the knot: parked just below the diver, facing
+    // away (blue cone pointing down, held still on a long pause), so it
+    // reads as a third big body in the group without adding to the alarm —
+    // the two attackers above still do the lunging.
+    const shark3 = world.state.sharks[2];
+    shark3.x = 640;
+    shark3.y = 230;
+    shark3.dir = Math.PI / 2;
+    shark3.state = 'patrol';
+    shark3.pauseTimer = 99;
+    shark3.suspicion = 0;
+    shark3.lastSeen = { x: 640, y: 230 };
     // The diver shoots first: the harpoon hit tells the shark exactly where
     // the diver is (so it comes straight for them) and slows it down — the
     // new trade-off, caught in the frame as a lunging shark with a gold slow
