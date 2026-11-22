@@ -1,11 +1,11 @@
-// Keyboard and pointer input for Midnight Vault. Held keys give a steering vector;
-// one-shot presses (confirm, pause, jammer, mute) are queued as bit flags and taken
-// once by the loop, so a press between two frames is never lost or counted twice.
-// Holding the mouse button steers the thief toward the pointer instead.
+// Keyboard and pointer input for Sunken Vault. Held keys give a steering vector;
+// one-shot presses (confirm, pause, ink burst, mute) are queued as bit flags and
+// taken once by the loop, so a press between two frames is never lost or counted
+// twice. Holding the mouse button steers the diver toward the pointer instead.
 
 export const ACTION_CONFIRM = 1;
 export const ACTION_PAUSE = 2;
-export const ACTION_JAMMER = 4;
+export const ACTION_INK = 4;
 export const ACTION_MUTE = 8;
 
 const LEFT = new Set(['ArrowLeft', 'KeyA']);
@@ -15,7 +15,7 @@ const DOWN = new Set(['ArrowDown', 'KeyS']);
 const SNEAK = new Set(['ShiftLeft', 'ShiftRight']);
 const CONFIRM = new Set(['Space', 'Enter']);
 const PAUSE = new Set(['KeyP', 'Escape']);
-const JAMMER = new Set(['KeyQ']);
+const INK = new Set(['KeyQ']);
 const MUTE = new Set(['KeyM']);
 
 export function createInput(target, toField) {
@@ -37,8 +37,8 @@ export function createInput(target, toField) {
       if (!event.repeat) actions |= ACTION_CONFIRM;
     } else if (PAUSE.has(event.code)) {
       if (!event.repeat) actions |= ACTION_PAUSE;
-    } else if (JAMMER.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_JAMMER;
+    } else if (INK.has(event.code)) {
+      if (!event.repeat) actions |= ACTION_INK;
     } else if (MUTE.has(event.code)) {
       if (!event.repeat) actions |= ACTION_MUTE;
     } else return;

@@ -1,4 +1,4 @@
-// Midnight Vault — the loop, the screens and the shot mode. A fixed-step accumulator
+// Sunken Vault — the loop, the screens and the shot mode. A fixed-step accumulator
 // drives the world at 60Hz no matter the display's rate; the screens are plain objects
 // ({type, world}) and the renderer draws whichever one is current. With ?shot=<id> in
 // the URL the page renders one staged screenshot scene and signals readiness instead
@@ -9,7 +9,7 @@ import {
   createWorld,
   EVENT_CAUGHT,
   EVENT_CLEAR,
-  EVENT_JAMMER,
+  EVENT_INK,
   EVENT_LOCKDOWN,
   EVENT_LOOT,
   EVENT_OVER,
@@ -17,7 +17,7 @@ import {
   EVENT_WIN,
 } from './world.js';
 import { createRandom } from './random.js';
-import { ACTION_CONFIRM, ACTION_JAMMER, ACTION_MUTE, ACTION_PAUSE, createInput } from './input.js';
+import { ACTION_CONFIRM, ACTION_INK, ACTION_MUTE, ACTION_PAUSE, createInput } from './input.js';
 import { audio } from './audio.js';
 import {
   createRenderer,
@@ -79,7 +79,7 @@ function handleEvents(events) {
   if (events & EVENT_SPOTTED) audio.spotted();
   if (events & EVENT_CAUGHT) audio.caught();
   if (events & EVENT_LOCKDOWN) audio.lockdown();
-  if (events & EVENT_JAMMER) audio.jammer();
+  if (events & EVENT_INK) audio.ink();
   if (events & EVENT_CLEAR) {
     audio.clear();
     screen = { type: SCREEN_CLEAR, world };
@@ -101,7 +101,7 @@ function stepGame() {
   if (actions & ACTION_MUTE) audio.toggleMute();
 
   if (screen.type === SCREEN_TITLE) {
-    world.step(STEP, { x: 0, y: 0, sneak: false, jammer: false }, true);
+    world.step(STEP, { x: 0, y: 0, sneak: false, ink: false }, true);
     if (actions & ACTION_CONFIRM) {
       audio.click();
       startRun();
@@ -141,7 +141,7 @@ function stepGame() {
     x: vector.x,
     y: vector.y,
     sneak: vector.sneak,
-    jammer: Boolean(actions & ACTION_JAMMER),
+    ink: Boolean(actions & ACTION_INK),
   }, false);
   handleEvents(events);
 }

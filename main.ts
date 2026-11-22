@@ -1,4 +1,4 @@
-// Midnight Vault — the build script (Node 22, standard library only). It hands the
+// Sunken Vault — the build script (Node 22, standard library only). It hands the
 // game in: copy this directory's game/ and screenshots/ into the output directory
 // (MAKEFUN_OUTPUT_DIR locally, /output in the grader) and write dossier.json there
 // with the vendored make.fun library. The caps mirror the scorer's own limits, so a

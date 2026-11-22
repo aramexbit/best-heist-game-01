@@ -1,14 +1,19 @@
-// Midnight Vault — every tuning number and colour in one place.
+// Sunken Vault — every tuning number and colour in one place.
 // The playfield is a fixed 1280x720 logical area; the renderer scales it to the
 // window, so no rule below depends on the screen size.
+//
+// Skin rules (learned from the Fathom kits and the mermaid-food-truck art doc):
+// one shared palette, everything lit from above (tops lighter, bottoms darker),
+// and a sub-palette per depth: the reef is bright and warm, the wreck is muted,
+// the trench is dark with bioluminescent glows.
 
 export const FIELD = { width: 1280, height: 720 };
 
 /** The simulation's fixed step, in seconds: 60 updates a second whatever the display's rate. */
 export const STEP = 1 / 60;
 
-/** The thief: a circle that slides along walls. Sneaking is slower but halves detection. */
-export const PLAYER = {
+/** The diver: a circle that swims along the rocks. Slow swimming halves detection. */
+export const DIVER = {
   radius: 13,
   speed: 230,
   sneakSpeed: 120,
@@ -16,87 +21,140 @@ export const PLAYER = {
 
 export const LIVES = 3;
 
-/** A guard walks its waypoints, pauses at each, and watches a cone in front of it. */
-export const GUARD = {
+/** A shark patrols its waypoints, pauses at each, and hunts with a sense cone. */
+export const SHARK = {
   radius: 14,
   patrolSpeed: 80,
   chaseSpeed: 250,
   visionRange: 250,
-  /** Half of the vision cone's angle, in radians. */
+  /** Half of the sense cone's angle, in radians. */
   visionHalfAngle: 0.6,
-  /** Seconds a guard waits at each waypoint before walking on. */
+  /** Seconds a shark waits at each waypoint before swimming on. */
   pauseAtWaypoint: 0.8,
-  /** How fast suspicion (0..1) grows while the thief is inside the cone and in sight. */
+  /** How fast suspicion (0..1) grows while the diver is inside the cone and in sight. */
   detectNear: 1.25,
   detectFar: 0.6,
-  /** Seconds without sight before a chasing guard gives up and goes back to patrol. */
+  /** Seconds without sight before a chasing shark gives up and goes back to patrol. */
   loseSightSeconds: 3,
-  /** Radius inside which a chasing guard catches the thief. */
+  /** Radius inside which a chasing shark catches the diver. */
   catchRadius: 26,
 };
 
-/** A wall camera sweeps its cone back and forth; the jammer switches it off for a while. */
-export const CAMERA = {
+/** A sonar camera on the seabed sweeps its cone back and forth; the ink burst switches it off for a while. */
+export const SONAR = {
   range: 250,
   halfAngle: 0.5,
-  /** Alarm points per second while the thief stands in a live camera cone. */
+  /** Alarm points per second while the diver stands in a live sonar cone. */
   alarmPerSecond: 30,
 };
 
 /** The alarm meter (0..100) and what feeds it. */
 export const ALARM = {
   max: 100,
-  /** Alarm points per second while any guard has the thief in sight. */
-  guardPerSecond: 18,
-  /** Alarm points drained per second while nobody sees the thief. */
+  /** Alarm points per second while any shark has the diver in sight. */
+  sharkPerSecond: 18,
+  /** Alarm points drained per second while nobody sees the diver. */
   decayPerSecond: 4,
-  /** Score lost when the alarm tops out and the building locks down. */
+  /** Score lost when the alarm tops out and the whole reef goes on alert. */
   lockdownPenalty: 100,
   /** Where the meter resets to after a lockdown. */
   lockdownReset: 55,
-  /** Seconds guards hunt the thief after a lockdown. */
+  /** Seconds sharks hunt the diver after a lockdown. */
   lockdownHuntSeconds: 4,
 };
 
-/** Loot kinds and what each is worth. */
+/** Treasure kinds and what each is worth. */
 export const LOOT = {
-  cash: { value: 100, label: 'Cash' },
-  paint: { value: 250, label: 'Painting' },
-  gem: { value: 500, label: 'Diamond' },
-  vault: { value: 1000, label: 'Vault gold' },
+  coins: { value: 100, label: 'Gold coins' },
+  pearl: { value: 250, label: 'Pearl' },
+  gem: { value: 500, label: 'Sapphire' },
+  chest: { value: 1000, label: 'Treasure chest' },
 };
 
-/** Jammer charges per level; one charge kills every camera for this long. */
-export const JAMMER = { charges: 2, disableSeconds: 8 };
+/** Ink burst charges per level; one charge blinds every sonar camera for this long. */
+export const INK = { charges: 2, disableSeconds: 8 };
 
 /** Score for clearing a level: this many points per second left on the clock. */
 export const TIME_BONUS_PER_SECOND = 5;
 
+/** One sub-palette per depth, from the Fathom seas: Sunlit Shallows (reef),
+ * Shipwreck (wreck) and Midnight Zone (trench). The water darkens with depth,
+ * reds fade, and the trench gets its colours back from bioluminescent glows. */
+export const THEMES = {
+  reef: {
+    waterTop: '#0e5a6e',
+    waterBottom: '#04283a',
+    sand: '#c2a266',
+    sandDark: '#a8894f',
+    rock: '#4b4a3e',
+    rockTop: '#6d7a68',
+    rockEdge: '#2e2d24',
+    kelp: '#1f7a4d',
+    kelpDark: '#145c38',
+    coral: '#ff8a7a',
+    coral2: '#ffb347',
+    glow: '#ffe9a8',
+    shaft: 'rgba(255, 233, 168, 0.10)',
+  },
+  wreck: {
+    waterTop: '#0a3d4e',
+    waterBottom: '#03141f',
+    sand: '#8a7a58',
+    sandDark: '#6f6244',
+    rock: '#3d3a33',
+    rockTop: '#5c5648',
+    rockEdge: '#26241f',
+    kelp: '#1a5c38',
+    kelpDark: '#123f27',
+    coral: '#c97b4a',
+    coral2: '#8fa8bd',
+    glow: '#ffd166',
+    shaft: 'rgba(190, 220, 230, 0.07)',
+  },
+  trench: {
+    waterTop: '#061a2e',
+    waterBottom: '#010610',
+    sand: '#5d5a4e',
+    sandDark: '#48453c',
+    rock: '#232a35',
+    rockTop: '#3a4556',
+    rockEdge: '#141920',
+    kelp: '#0f4a30',
+    kelpDark: '#0a3522',
+    coral: '#5ff2e0',
+    coral2: '#7ee7ff',
+    glow: '#5ff2e0',
+    shaft: 'rgba(95, 242, 224, 0.05)',
+  },
+};
+
 export const PALETTE = {
-  backdrop: '#0b0e14',
-  floor: '#171c26',
-  floorGrid: '#1e2534',
-  wall: '#3a4358',
-  wallTop: '#4d5878',
-  player: '#ffd166',
-  playerSneak: '#e8b64c',
-  guard: '#e5534b',
-  guardCone: 'rgba(229, 83, 75, 0.20)',
-  guardConeChase: 'rgba(229, 83, 75, 0.38)',
-  camera: '#ff5d8f',
-  cameraCone: 'rgba(255, 93, 143, 0.18)',
+  backdrop: '#03101c',
+  diver: '#ffb347',
+  diverSneak: '#e89b3c',
+  diverSuit: '#1c2b3a',
+  shark: '#8fa8bd',
+  sharkBelly: '#cfe3ee',
+  sharkFin: '#5d7285',
+  sharkCone: 'rgba(255, 59, 48, 0.28)',
+  sharkConeChase: 'rgba(255, 59, 48, 0.45)',
+  sonar: '#ffc850',
+  sonarCone: 'rgba(255, 200, 80, 0.22)',
+  sonarDome: '#bfe8ff',
   loot: '#f2c94c',
   exit: '#3ddc84',
   exitDark: '#1d7a4a',
   text: '#eef1f5',
-  muted: '#8b93a3',
-  panel: '#202634',
+  muted: '#9fb4c0',
+  panel: '#0e2233',
   alarm: '#ff4d4d',
   alarmTrack: '#33202a',
   gold: '#f2c94c',
+  bubble: 'rgba(200, 235, 245, 0.55)',
+  ink: 'rgba(20, 12, 40, 0.55)',
 };
 
 export const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
 
 /** Where the best score is kept between visits (this browser only). */
-export const BEST_KEY = 'midnight-vault.best';
+export const BEST_KEY = 'sunken-vault.best';

@@ -1,6 +1,7 @@
 # Build outputs and local tooling — never part of the entry.
 # Note: screenshots/ is deliberately NOT ignored; the four captures are part of
 # the entry and main.ts copies them into the output.
+# Retheme note: the game is now Sunken Vault (diver vs sharks); nothing below changed.
 out/
 node_modules/
 .DS_Store

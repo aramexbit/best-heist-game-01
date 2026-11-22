@@ -1,8 +1,9 @@
-// Tiny WebAudio sound effects for Midnight Vault: short oscillator blips, no audio
+// Tiny WebAudio sound effects for Sunken Vault: short oscillator blips, no audio
 // files, no network. Everything is lazy (the context starts on the first user gesture)
 // and guarded, so a browser without audio — or a headless run — simply stays silent.
 // Every function is safe to call before any gesture and after a mute: it either
-// plays or does nothing, and never throws.
+// plays or does nothing, and never throws. The ink burst is a low bubbly blurt,
+// the pickup a bright coin chime.
 
 function createAudio() {
   let context = null;
@@ -55,8 +56,8 @@ function createAudio() {
       tone(660, 0.07, 'square', 0.05);
     },
     pickup() {
-      tone(880, 0.09, 'sine', 0.12);
-      tone(1318, 0.12, 'sine', 0.1, 0.07);
+      tone(1046, 0.09, 'sine', 0.12);
+      tone(1568, 0.12, 'sine', 0.1, 0.07);
     },
     spotted() {
       tone(220, 0.16, 'sawtooth', 0.1);
@@ -71,10 +72,11 @@ function createAudio() {
       tone(440, 0.18, 'square', 0.09, 0.22);
       tone(440, 0.3, 'square', 0.09, 0.44);
     },
-    jammer() {
-      tone(1200, 0.06, 'sine', 0.08);
-      tone(900, 0.06, 'sine', 0.08, 0.06);
-      tone(600, 0.1, 'sine', 0.08, 0.12);
+    ink() {
+      tone(320, 0.1, 'sine', 0.1);
+      tone(240, 0.12, 'sine', 0.1, 0.07);
+      tone(170, 0.16, 'sine', 0.1, 0.15);
+      tone(120, 0.2, 'sine', 0.08, 0.26);
     },
     clear() {
       tone(523, 0.12, 'sine', 0.12);

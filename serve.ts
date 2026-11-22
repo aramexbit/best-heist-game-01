@@ -1,4 +1,4 @@
-// Midnight Vault — a tiny static server for game/ (Node 22, standard library only),
+// Sunken Vault — a tiny static server for game/ (Node 22, standard library only),
 // so the entry can be played locally without a build step:
 //
 //   node serve.ts            # game/ on http://localhost:8080

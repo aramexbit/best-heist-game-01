@@ -1,18 +1,23 @@
-// Midnight Vault — the game's rules and state, with no drawing and no browser in
-// it: the thief, the patrolling guards and their vision cones, the sweeping cameras,
-// the loot, the alarm meter, the getaway, the score. step() advances one fixed step
-// and returns what happened as bit flags, so the caller can react without the world
-// knowing about screens or sound. Nothing here allocates after createWorld returns.
+// Sunken Vault — the game's rules and state, with no drawing and no browser in
+// it: the diver, the patrolling sharks and their sense cones, the sweeping sonar
+// cameras, the treasure, the alarm meter, the boat, the score. step() advances one
+// fixed step and returns what happened as bit flags, so the caller can react
+// without the world knowing about screens or sound. Nothing here allocates after
+// createWorld returns.
+//
+// Kelp beds are the diver's hiding place: they block sight like rock does, but
+// the diver (and the sharks) can swim straight through them — the classic stealth
+// grass, under water.
 
 import {
   ALARM,
-  CAMERA,
+  SONAR,
   FIELD,
-  GUARD,
-  JAMMER,
+  SHARK,
+  INK,
   LIVES,
   LOOT,
-  PLAYER,
+  DIVER,
   TIME_BONUS_PER_SECOND,
 } from './config.js';
 import { LEVELS } from './levels.js';
@@ -24,7 +29,7 @@ export const EVENT_LOCKDOWN = 8;
 export const EVENT_CLEAR = 16;
 export const EVENT_WIN = 32;
 export const EVENT_OVER = 64;
-export const EVENT_JAMMER = 128;
+export const EVENT_INK = 128;
 
 /** Smallest angle between two headings, in radians. */
 function angleDiff(a, b) {
@@ -86,15 +91,15 @@ export function createWorld(random) {
     levelIndex: 0,
     level: LEVELS[0],
     player: { x: 0, y: 0, dirX: 1, dirY: 0, sneaking: false, invulnerable: 0 },
-    guards: [],
-    cameras: [],
+    sharks: [],
+    sonars: [],
     loot: [],
     alarm: 0,
     score: 0,
     lives: LIVES,
     timeLeft: 0,
     phase: 'play',
-    jammerCharges: JAMMER.charges,
+    inkCharges: INK.charges,
     lockdowns: 0,
     lootTaken: 0,
     lootValue: 0,
@@ -114,7 +119,7 @@ export function createWorld(random) {
     state.player.dirY = 0;
     state.player.sneaking = false;
     state.player.invulnerable = 0;
-    state.guards = level.guards.map((g) => ({
+    state.sharks = level.sharks.map((g) => ({
       x: g.waypoints[0].x,
       y: g.waypoints[0].y,
       waypoints: g.waypoints,
@@ -129,7 +134,7 @@ export function createWorld(random) {
       stuckTimer: 0,
       lastSeen: { x: g.waypoints[0].x, y: g.waypoints[0].y },
     }));
-    state.cameras = level.cameras.map((c, i) => ({
+    state.sonars = level.sonars.map((c, i) => ({
       x: c.x,
       y: c.y,
       baseAngle: c.baseAngle,
@@ -152,7 +157,7 @@ export function createWorld(random) {
     state.alarm = 0;
     state.timeLeft = level.timeLimit;
     state.phase = 'play';
-    state.jammerCharges = JAMMER.charges;
+    state.inkCharges = INK.charges;
     state.lootTaken = 0;
     state.lootValue = 0;
     state.clearBonus = 0;
@@ -174,32 +179,36 @@ export function createWorld(random) {
     return true;
   }
 
-  /** True when the segment from (x1,y1) to (x2,y2) is blocked by any wall. */
+  /** True when the segment from (x1,y1) to (x2,y2) is blocked by any rock or kelp bed. */
   function blockedSight(x1, y1, x2, y2) {
     const walls = state.level.walls;
     for (let i = 0; i < walls.length; i += 1) {
       if (segmentHitsRect(x1, y1, x2, y2, walls[i])) return true;
     }
+    const kelp = state.level.kelp || [];
+    for (let i = 0; i < kelp.length; i += 1) {
+      if (segmentHitsRect(x1, y1, x2, y2, kelp[i])) return true;
+    }
     return false;
   }
 
-  /** How dangerous a point is: 1 when a live guard or camera cone with clear sight covers it. */
+  /** How dangerous a point is: 1 when a live shark or sonar cone with clear sight covers it. */
   function dangerAt(x, y) {
-    for (const guard of state.guards) {
-      const dx = x - guard.x;
-      const dy = y - guard.y;
+    for (const shark of state.sharks) {
+      const dx = x - shark.x;
+      const dy = y - shark.y;
       const dist = Math.hypot(dx, dy);
-      if (dist <= GUARD.visionRange && angleDiff(Math.atan2(dy, dx), guard.dir) <= GUARD.visionHalfAngle) {
-        if (!blockedSight(guard.x, guard.y, x, y)) return 1;
+      if (dist <= SHARK.visionRange && angleDiff(Math.atan2(dy, dx), shark.dir) <= SHARK.visionHalfAngle) {
+        if (!blockedSight(shark.x, shark.y, x, y)) return 1;
       }
     }
-    for (const camera of state.cameras) {
-      if (camera.disabled > 0) continue;
-      const dx = x - camera.x;
-      const dy = y - camera.y;
+    for (const sonar of state.sonars) {
+      if (sonar.disabled > 0) continue;
+      const dx = x - sonar.x;
+      const dy = y - sonar.y;
       const dist = Math.hypot(dx, dy);
-      if (dist <= camera.range && angleDiff(Math.atan2(dy, dx), camera.angle) <= CAMERA.halfAngle) {
-        if (!blockedSight(camera.x, camera.y, x, y)) return 1;
+      if (dist <= sonar.range && angleDiff(Math.atan2(dy, dx), sonar.angle) <= SONAR.halfAngle) {
+        if (!blockedSight(sonar.x, sonar.y, x, y)) return 1;
       }
     }
     return 0;
@@ -225,29 +234,29 @@ export function createWorld(random) {
       }
     }
     if (!hit) entity.y = ny;
-    entity.x = Math.max(PLAYER.radius, Math.min(FIELD.width - PLAYER.radius, entity.x));
-    entity.y = Math.max(PLAYER.radius, Math.min(FIELD.height - PLAYER.radius, entity.y));
+    entity.x = Math.max(DIVER.radius, Math.min(FIELD.width - DIVER.radius, entity.x));
+    entity.y = Math.max(DIVER.radius, Math.min(FIELD.height - DIVER.radius, entity.y));
   }
 
-  function guardSeesPlayer(guard) {
+  function sharkSeesPlayer(shark) {
     const p = state.player;
-    const dx = p.x - guard.x;
-    const dy = p.y - guard.y;
+    const dx = p.x - shark.x;
+    const dy = p.y - shark.y;
     const dist = Math.hypot(dx, dy);
-    if (dist > GUARD.visionRange) return 0;
-    if (angleDiff(Math.atan2(dy, dx), guard.dir) > GUARD.visionHalfAngle) return 0;
-    if (blockedSight(guard.x, guard.y, p.x, p.y)) return 0;
+    if (dist > SHARK.visionRange) return 0;
+    if (angleDiff(Math.atan2(dy, dx), shark.dir) > SHARK.visionHalfAngle) return 0;
+    if (blockedSight(shark.x, shark.y, p.x, p.y)) return 0;
     return dist;
   }
 
-  function cameraSeesPlayer(camera) {
-    if (camera.disabled > 0) return false;
+  function sonarSeesPlayer(sonar) {
+    if (sonar.disabled > 0) return false;
     const p = state.player;
-    const dx = p.x - camera.x;
-    const dy = p.y - camera.y;
-    if (Math.hypot(dx, dy) > camera.range) return false;
-    if (angleDiff(Math.atan2(dy, dx), camera.angle) > CAMERA.halfAngle) return false;
-    return !blockedSight(camera.x, camera.y, p.x, p.y);
+    const dx = p.x - sonar.x;
+    const dy = p.y - sonar.y;
+    if (Math.hypot(dx, dy) > sonar.range) return false;
+    if (angleDiff(Math.atan2(dy, dx), sonar.angle) > SONAR.halfAngle) return false;
+    return !blockedSight(sonar.x, sonar.y, p.x, p.y);
   }
 
   function respawnAfterCaught() {
@@ -255,93 +264,93 @@ export function createWorld(random) {
     state.player.x = level.entry.x;
     state.player.y = level.entry.y;
     state.player.invulnerable = 2;
-    for (const guard of state.guards) {
-      guard.x = guard.waypoints[0].x;
-      guard.y = guard.waypoints[0].y;
-      guard.wpIndex = 1 % guard.waypoints.length;
-      guard.state = 'patrol';
-      guard.suspicion = 0;
-      guard.pauseTimer = 0;
-      guard.loseTimer = 0;
-      guard.huntTimer = 0;
-      guard.stuckTimer = 0;
+    for (const shark of state.sharks) {
+      shark.x = shark.waypoints[0].x;
+      shark.y = shark.waypoints[0].y;
+      shark.wpIndex = 1 % shark.waypoints.length;
+      shark.state = 'patrol';
+      shark.suspicion = 0;
+      shark.pauseTimer = 0;
+      shark.loseTimer = 0;
+      shark.huntTimer = 0;
+      shark.stuckTimer = 0;
     }
   }
 
   /**
-   * One fixed step. `input` is {x, y, sneak, jammer}: a steering vector (-1..1 each
-   * way), whether the thief sneaks, and a one-shot jammer press. With `demo` set the
-   * guards patrol and the cameras sweep but nothing detects, scores or ends — the
-   * title screen's living backdrop.
+   * One fixed step. `input` is {x, y, sneak, ink}: a steering vector (-1..1 each
+   * way), whether the diver swims slow, and a one-shot ink burst press. With `demo`
+   * set the sharks patrol and the sonar sweeps but nothing detects, scores or ends
+   * — the title screen's living backdrop.
    */
   function step(dt, input, demo) {
     let events = 0;
     state.elapsed += dt;
 
-    // A hint (like "grab loot first") fades a few seconds after it appears.
+    // A hint (like "grab treasure first") fades a few seconds after it appears.
     if (state.messageTimer > 0) {
       state.messageTimer -= dt;
       if (state.messageTimer <= 0) state.message = '';
     }
 
-    // Cameras always sweep, even on the title screen.
-    for (const camera of state.cameras) {
-      camera.angle = camera.baseAngle + camera.arc * Math.sin((state.elapsed * Math.PI * 2) / camera.period + camera.phase);
-      if (camera.disabled > 0) camera.disabled = Math.max(0, camera.disabled - dt);
-      camera.spotted = false;
+    // Sonar cameras always sweep, even on the title screen.
+    for (const sonar of state.sonars) {
+      sonar.angle = sonar.baseAngle + sonar.arc * Math.sin((state.elapsed * Math.PI * 2) / sonar.period + sonar.phase);
+      if (sonar.disabled > 0) sonar.disabled = Math.max(0, sonar.disabled - dt);
+      sonar.spotted = false;
     }
 
-    // Guards always walk their patrols.
-    for (const guard of state.guards) {
-      if (guard.state === 'patrol') {
-        if (guard.pauseTimer > 0) {
-          guard.pauseTimer -= dt;
+    // Sharks always swim their patrols.
+    for (const shark of state.sharks) {
+      if (shark.state === 'patrol') {
+        if (shark.pauseTimer > 0) {
+          shark.pauseTimer -= dt;
         } else {
-          const target = guard.waypoints[guard.wpIndex];
-          const dx = target.x - guard.x;
-          const dy = target.y - guard.y;
+          const target = shark.waypoints[shark.wpIndex];
+          const dx = target.x - shark.x;
+          const dy = target.y - shark.y;
           const dist = Math.hypot(dx, dy);
           if (dist < 4) {
-            guard.wpIndex = (guard.wpIndex + 1) % guard.waypoints.length;
-            guard.pauseTimer = GUARD.pauseAtWaypoint;
+            shark.wpIndex = (shark.wpIndex + 1) % shark.waypoints.length;
+            shark.pauseTimer = SHARK.pauseAtWaypoint;
           } else {
-            const beforeX = guard.x;
-            const beforeY = guard.y;
-            const vx = (dx / dist) * guard.speed * dt;
-            const vy = (dy / dist) * guard.speed * dt;
-            guard.dir = Math.atan2(dy, dx);
-            moveCircle(guard, vx, vy, GUARD.radius);
-            // A patrol blocked by a wall for 1.5s skips to the next waypoint
-            // instead of standing against the wall forever.
-            if (Math.hypot(guard.x - beforeX, guard.y - beforeY) < 0.01) {
-              guard.stuckTimer += dt;
-              if (guard.stuckTimer > 1.5) {
-                guard.stuckTimer = 0;
-                guard.wpIndex = (guard.wpIndex + 1) % guard.waypoints.length;
-                guard.pauseTimer = GUARD.pauseAtWaypoint;
+            const beforeX = shark.x;
+            const beforeY = shark.y;
+            const vx = (dx / dist) * shark.speed * dt;
+            const vy = (dy / dist) * shark.speed * dt;
+            shark.dir = Math.atan2(dy, dx);
+            moveCircle(shark, vx, vy, SHARK.radius);
+            // A patrol blocked by a rock for 1.5s skips to the next waypoint
+            // instead of nosing against the rock forever.
+            if (Math.hypot(shark.x - beforeX, shark.y - beforeY) < 0.01) {
+              shark.stuckTimer += dt;
+              if (shark.stuckTimer > 1.5) {
+                shark.stuckTimer = 0;
+                shark.wpIndex = (shark.wpIndex + 1) % shark.waypoints.length;
+                shark.pauseTimer = SHARK.pauseAtWaypoint;
               }
             } else {
-              guard.stuckTimer = 0;
+              shark.stuckTimer = 0;
             }
           }
         }
-      } else if (guard.state === 'chase' || guard.state === 'hunt') {
-        const tx = guard.state === 'chase' ? state.player.x : guard.lastSeen.x;
-        const ty = guard.state === 'chase' ? state.player.y : guard.lastSeen.y;
-        const dx = tx - guard.x;
-        const dy = ty - guard.y;
+      } else if (shark.state === 'chase' || shark.state === 'hunt') {
+        const tx = shark.state === 'chase' ? state.player.x : shark.lastSeen.x;
+        const ty = shark.state === 'chase' ? state.player.y : shark.lastSeen.y;
+        const dx = tx - shark.x;
+        const dy = ty - shark.y;
         const dist = Math.hypot(dx, dy);
         if (dist > 2) {
-          const vx = (dx / dist) * GUARD.chaseSpeed * dt;
-          const vy = (dy / dist) * GUARD.chaseSpeed * dt;
-          guard.dir = Math.atan2(dy, dx);
-          moveCircle(guard, vx, vy, GUARD.radius);
+          const vx = (dx / dist) * SHARK.chaseSpeed * dt;
+          const vy = (dy / dist) * SHARK.chaseSpeed * dt;
+          shark.dir = Math.atan2(dy, dx);
+          moveCircle(shark, vx, vy, SHARK.radius);
         }
-        if (guard.state === 'hunt') {
-          guard.huntTimer -= dt;
-          if (guard.huntTimer <= 0) {
-            guard.state = 'patrol';
-            guard.suspicion = 0.4;
+        if (shark.state === 'hunt') {
+          shark.huntTimer -= dt;
+          if (shark.huntTimer <= 0) {
+            shark.state = 'patrol';
+            shark.suspicion = 0.4;
           }
         }
       }
@@ -352,26 +361,26 @@ export function createWorld(random) {
     const player = state.player;
     if (player.invulnerable > 0) player.invulnerable = Math.max(0, player.invulnerable - dt);
 
-    // The thief moves; walls stop the slide one axis at a time.
+    // The diver swims; rocks stop the slide one axis at a time. Kelp never blocks.
     const len = Math.hypot(input.x, input.y);
     const nx = len > 0 ? input.x / len : 0;
     const ny = len > 0 ? input.y / len : 0;
-    const speed = input.sneak ? PLAYER.sneakSpeed : PLAYER.speed;
+    const speed = input.sneak ? DIVER.sneakSpeed : DIVER.speed;
     player.sneaking = Boolean(input.sneak);
     if (nx !== 0 || ny !== 0) {
       player.dirX = nx;
       player.dirY = ny;
     }
-    moveCircle(player, nx * speed * dt, ny * speed * dt, PLAYER.radius);
+    moveCircle(player, nx * speed * dt, ny * speed * dt, DIVER.radius);
 
-    // Jammer: one charge switches every camera off for a while.
-    if (input.jammer && state.jammerCharges > 0) {
-      state.jammerCharges -= 1;
-      for (const camera of state.cameras) camera.disabled = JAMMER.disableSeconds;
-      events |= EVENT_JAMMER;
+    // Ink burst: one charge blinds every sonar camera for a while.
+    if (input.ink && state.inkCharges > 0) {
+      state.inkCharges -= 1;
+      for (const sonar of state.sonars) sonar.disabled = INK.disableSeconds;
+      events |= EVENT_INK;
     }
 
-    // Loot: walk over it to pocket it.
+    // Treasure: swim over it to pocket it.
     for (const item of state.loot) {
       if (item.taken) continue;
       const dx = player.x - item.x;
@@ -385,38 +394,38 @@ export function createWorld(random) {
       }
     }
 
-    // Who sees the thief right now?
+    // Who sees the diver right now?
     let seen = false;
     const sneakFactor = player.sneaking ? 0.5 : 1;
-    for (const guard of state.guards) {
-      const dist = guardSeesPlayer(guard);
+    for (const shark of state.sharks) {
+      const dist = sharkSeesPlayer(shark);
       if (dist > 0 && player.invulnerable === 0) {
         seen = true;
-        guard.lastSeen.x = player.x;
-        guard.lastSeen.y = player.y;
-        const rate = GUARD.detectFar + (GUARD.detectNear - GUARD.detectFar) * (1 - dist / GUARD.visionRange);
-        guard.suspicion = Math.min(1, guard.suspicion + rate * sneakFactor * dt);
-        if (guard.suspicion >= 1 && guard.state !== 'chase') {
-          guard.state = 'chase';
-          guard.loseTimer = GUARD.loseSightSeconds;
+        shark.lastSeen.x = player.x;
+        shark.lastSeen.y = player.y;
+        const rate = SHARK.detectFar + (SHARK.detectNear - SHARK.detectFar) * (1 - dist / SHARK.visionRange);
+        shark.suspicion = Math.min(1, shark.suspicion + rate * sneakFactor * dt);
+        if (shark.suspicion >= 1 && shark.state !== 'chase') {
+          shark.state = 'chase';
+          shark.loseTimer = SHARK.loseSightSeconds;
           events |= EVENT_SPOTTED;
         }
-        if (guard.state === 'chase') guard.loseTimer = GUARD.loseSightSeconds;
+        if (shark.state === 'chase') shark.loseTimer = SHARK.loseSightSeconds;
       } else {
-        guard.suspicion = Math.max(0, guard.suspicion - dt * 0.5);
-        if (guard.state === 'chase') {
-          guard.loseTimer -= dt;
-          if (guard.loseTimer <= 0) {
-            guard.state = 'patrol';
-            guard.suspicion = 0.4;
+        shark.suspicion = Math.max(0, shark.suspicion - dt * 0.5);
+        if (shark.state === 'chase') {
+          shark.loseTimer -= dt;
+          if (shark.loseTimer <= 0) {
+            shark.state = 'patrol';
+            shark.suspicion = 0.4;
           }
         }
       }
-      // A chasing or hunting guard that reaches the thief catches them.
-      if ((guard.state === 'chase' || guard.state === 'hunt') && player.invulnerable === 0) {
-        const dx = player.x - guard.x;
-        const dy = player.y - guard.y;
-        if (dx * dx + dy * dy < GUARD.catchRadius * GUARD.catchRadius) {
+      // A chasing or hunting shark that reaches the diver catches them.
+      if ((shark.state === 'chase' || shark.state === 'hunt') && player.invulnerable === 0) {
+        const dx = player.x - shark.x;
+        const dy = player.y - shark.y;
+        if (dx * dx + dy * dy < SHARK.catchRadius * SHARK.catchRadius) {
           state.lives -= 1;
           events |= EVENT_CAUGHT;
           if (state.lives <= 0) {
@@ -428,42 +437,42 @@ export function createWorld(random) {
         }
       }
     }
-    for (const camera of state.cameras) {
-      if (cameraSeesPlayer(camera) && player.invulnerable === 0) {
+    for (const sonar of state.sonars) {
+      if (sonarSeesPlayer(sonar) && player.invulnerable === 0) {
         seen = true;
-        camera.spotted = true;
+        sonar.spotted = true;
       }
     }
 
-    // The alarm climbs while the thief is seen, drains while hidden.
+    // The alarm climbs while the diver is seen, drains while hidden.
     if (seen) {
       let rise = 0;
-      for (const guard of state.guards) {
-        if (guardSeesPlayer(guard) > 0 && player.invulnerable === 0) rise += ALARM.guardPerSecond;
+      for (const shark of state.sharks) {
+        if (sharkSeesPlayer(shark) > 0 && player.invulnerable === 0) rise += ALARM.sharkPerSecond;
       }
-      for (const camera of state.cameras) {
-        if (camera.spotted) rise += CAMERA.alarmPerSecond;
+      for (const sonar of state.sonars) {
+        if (sonar.spotted) rise += SONAR.alarmPerSecond;
       }
       state.alarm = Math.min(ALARM.max, state.alarm + rise * sneakFactor * dt);
     } else {
       state.alarm = Math.max(0, state.alarm - ALARM.decayPerSecond * dt);
     }
 
-    // A full alarm locks the building down: penalty, then every guard hunts.
+    // A full alarm puts the whole reef on alert: penalty, then every shark hunts.
     if (state.alarm >= ALARM.max) {
       state.lockdowns += 1;
       state.score = Math.max(0, state.score - ALARM.lockdownPenalty);
       state.alarm = ALARM.lockdownReset;
-      for (const guard of state.guards) {
-        guard.state = 'hunt';
-        guard.huntTimer = ALARM.lockdownHuntSeconds;
-        guard.lastSeen.x = player.x;
-        guard.lastSeen.y = player.y;
+      for (const shark of state.sharks) {
+        shark.state = 'hunt';
+        shark.huntTimer = ALARM.lockdownHuntSeconds;
+        shark.lastSeen.x = player.x;
+        shark.lastSeen.y = player.y;
       }
       events |= EVENT_LOCKDOWN;
     }
 
-    // The clock: run out of time and the police arrive.
+    // The clock: run out of air and the dive is over.
     state.timeLeft -= dt;
     if (state.timeLeft <= 0) {
       state.timeLeft = 0;
@@ -472,7 +481,7 @@ export function createWorld(random) {
       return events;
     }
 
-    // The getaway: reach the van with at least one piece of loot to clear the level.
+    // The boat: reach it with at least one piece of treasure to clear the level.
     const exit = state.level.exit;
     if (
       player.x > exit.x &&
@@ -491,7 +500,7 @@ export function createWorld(random) {
           state.phase = 'clear';
         }
       } else {
-        state.message = 'The van leaves empty — grab at least one piece of loot first.';
+        state.message = 'The boat leaves empty — grab at least one treasure first.';
         state.messageTimer = 3;
       }
     }

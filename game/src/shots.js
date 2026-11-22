@@ -1,14 +1,14 @@
-// Midnight Vault — the five screenshot scenes, each staged by actually playing the
-// game forward: a careful autopilot (greedy, cone-aware) steers the thief, and the
-// alarm scene parks the thief inside a live camera cone for real. No scene is drawn
+// Sunken Vault — the five screenshot scenes, each staged by actually playing the
+// game forward: a careful autopilot (greedy, cone-aware) steers the diver, and the
+// alarm scene parks the diver inside a live sonar cone for real. No scene is drawn
 // from a hand-placed layout; every frame is the game's own renderer over live state.
 
-import { PLAYER, STEP } from './config.js';
+import { DIVER, STEP } from './config.js';
 import { createWorld, segmentHitsRect } from './world.js';
 import { createRandom } from './random.js';
 import { SCREEN_CLEAR, SCREEN_PLAY, SCREEN_TITLE } from './render.js';
 
-const IDLE = { x: 0, y: 0, sneak: false, jammer: false };
+const IDLE = { x: 0, y: 0, sneak: false, ink: false };
 
 function runSteps(world, seconds, input) {
   const n = Math.round(seconds / STEP);
@@ -16,18 +16,19 @@ function runSteps(world, seconds, input) {
 }
 
 /**
- * True when walking the straight line from (x1,y1) to (x2,y2) would push the
- * thief's circle into a wall. The walls are grown by the thief's radius and the
+ * True when swimming the straight line from (x1,y1) to (x2,y2) would push the
+ * diver's circle into a rock. The rocks are grown by the diver's radius and the
  * whole swept segment is tested — checking only the endpoint lies, because the
- * corner of a desk can block the path to a perfectly reachable point.
+ * corner of a rock can block the path to a perfectly reachable point. Kelp never
+ * blocks the swim, only sight, so it is not grown here.
  */
 function segmentBlocked(state, x1, y1, x2, y2) {
   for (const wall of state.level.walls) {
     const grown = {
-      x: wall.x - PLAYER.radius,
-      y: wall.y - PLAYER.radius,
-      w: wall.w + PLAYER.radius * 2,
-      h: wall.h + PLAYER.radius * 2,
+      x: wall.x - DIVER.radius,
+      y: wall.y - DIVER.radius,
+      w: wall.w + DIVER.radius * 2,
+      h: wall.h + DIVER.radius * 2,
     };
     if (segmentHitsRect(x1, y1, x2, y2, grown)) return true;
   }
@@ -35,10 +36,11 @@ function segmentBlocked(state, x1, y1, x2, y2) {
 }
 
 /**
- * The autopilot: head for the nearest unpocketed loot (or the van once the bag is
- * full), scoring each of the eight directions by distance to the target plus a heavy
- * penalty for stepping into a live guard or camera cone. It re-decides every step,
- * so it waits out a sweeping cone instead of walking through it.
+ * The autopilot: head for the nearest unpocketed treasure (or the boat once the
+ * bag is full), scoring each of the eight directions by distance to the target
+ * plus a heavy penalty for stepping into a live shark or sonar cone. It re-decides
+ * every step, so it waits out a sweeping cone instead of swimming through it.
+ * Kelp reads as safe through dangerAt, so the pilot uses the beds as cover.
  */
 export function pilotDirection(world, sneak) {
   const state = world.state;
@@ -57,9 +59,9 @@ export function pilotDirection(world, sneak) {
     const exit = state.level.exit;
     target = { x: exit.x + exit.w / 2, y: exit.y + exit.h / 2 };
   }
-  const speed = sneak ? PLAYER.sneakSpeed : PLAYER.speed;
+  const speed = sneak ? DIVER.sneakSpeed : DIVER.speed;
   // Look ahead at most 0.3s — but never past the target, or the pilot stops one
-  // lookahead short of the loot and decides standing still scores better.
+  // lookahead short of the treasure and decides standing still scores better.
   const look = Math.min(speed * 0.3, best);
   const dirs = [
     [1, 0],
@@ -85,8 +87,8 @@ export function pilotDirection(world, sneak) {
   }
   // Standing still only makes sense when already at the target, or when every
   // step leads into a cone (wait for the sweep to pass). Otherwise the pilot
-  // would freeze in a local minimum — e.g. against a desk, one step from the
-  // loot — because going around it briefly looks further away.
+  // would freeze in a local minimum — e.g. against a rock, one step from the
+  // treasure — because going around it briefly looks further away.
   if (best < 30 || !anySafe) {
     const danger = world.dangerAt(p.x, p.y);
     scored.push({ dx: 0, dy: 0, score: best + danger * 600 });
@@ -99,7 +101,7 @@ export function pilotDirection(world, sneak) {
       bestDir = { x: s.dx, y: s.dy };
     }
   }
-  return { x: bestDir.x, y: bestDir.y, sneak: Boolean(sneak), jammer: false };
+  return { x: bestDir.x, y: bestDir.y, sneak: Boolean(sneak), ink: false };
 }
 
 /** Play with the autopilot for up to `seconds`, stopping if the phase changes. */
@@ -113,11 +115,11 @@ function runPilot(world, seconds, sneak) {
 
 /**
  * Stage one screenshot scene and return the screen to render.
- * title — the crew at the door, guards on patrol behind the title panel.
- * play — mid-heist: the thief crossing the office with a guard's cone nearby.
- * sneak — the thief creeping in low gear past the patrol.
- * alarm — the thief caught in a live camera cone, alarm climbing, guard turning.
- * clear — the office job done: the level-clear panel over the emptied room.
+ * title — the diver at the reef edge, sharks on patrol behind the title panel.
+ * play — mid-dive: the diver crossing the reef with a shark's cone nearby.
+ * sneak — the diver creeping in slow gear past the patrol.
+ * alarm — the diver caught in a live sonar cone, alarm climbing, shark turning.
+ * clear — the reef dive done: the dive-clear panel over the emptied seabed.
  */
 export function stageShot(id) {
   const world = createWorld(createRandom(11));
@@ -126,7 +128,7 @@ export function stageShot(id) {
     return { type: SCREEN_TITLE, world };
   }
   if (id === 'play') {
-    runPilot(world, 6, false);
+    runPilot(world, 2.5, false);
     return { type: SCREEN_PLAY, world };
   }
   if (id === 'sneak') {
@@ -135,8 +137,9 @@ export function stageShot(id) {
   }
   if (id === 'alarm') {
     runPilot(world, 4, false);
-    // Park the thief under the office camera, inside its sweeping cone, and let
-    // the alarm climb for real while the guard turns toward the noise.
+    // Park the diver under the reef sonar camera, inside its sweeping cone, and
+    // let the alarm climb for real while the shark turns toward the noise. The
+    // parking spot (640, 120) is open sand — no kelp bed covers it.
     world.state.player.x = 640;
     world.state.player.y = 120;
     runSteps(world, 2, IDLE);
@@ -149,7 +152,7 @@ export function stageShot(id) {
     if (world.state.phase === 'clear') cleared = true;
   }
   if (!cleared) {
-    // Safety net: pocket what is left and walk out, still through real steps.
+    // Safety net: pocket what is left and swim out, still through real steps.
     world.state.timeLeft = Math.max(world.state.timeLeft, 30);
     for (const item of world.state.loot) {
       if (item.taken) continue;
