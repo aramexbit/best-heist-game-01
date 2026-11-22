@@ -184,6 +184,53 @@ export function stageShot(id) {
   }
   if (id === 'play') {
     runPilot(world, 2.5, false);
+    // The cover must read "many sharks" in one second: park the diver in open
+    // water and bring all three reef sharks in close around them — two chasing
+    // with red cones, one winding up with jaws half open and teeth showing —
+    // and a harpoon already in flight toward it. Staging only: the game
+    // itself is untouched (same patrols, same rules, same walls). Each shark
+    // sits in open water with a clear sight line to the diver, so the cones
+    // really point at them and the wind-up is real game logic, not a pose.
+    const p = world.state.player;
+    p.x = 530;
+    p.y = 210;
+    p.dirX = 1;
+    p.dirY = 0;
+    const sharks = world.state.sharks;
+    // Left-below: clear sight under the winding chain's corner.
+    sharks[0].x = 400;
+    sharks[0].y = 320;
+    sharks[0].dir = Math.atan2(p.y - 320, p.x - 400);
+    sharks[0].state = 'chase';
+    sharks[0].suspicion = 1;
+    sharks[0].loseTimer = 99;
+    sharks[0].attackCooldown = 0;
+    sharks[0].lastSeen = { x: p.x, y: p.y };
+    // Top-right: winding up, jaws half open, teeth out, pulsing red ring.
+    sharks[1].x = 680;
+    sharks[1].y = 180;
+    sharks[1].dir = Math.atan2(p.y - 180, p.x - 680);
+    sharks[1].state = 'windup';
+    sharks[1].windupTimer = SHARK.windupSeconds;
+    sharks[1].suspicion = 1;
+    sharks[1].loseTimer = 99;
+    sharks[1].attackCooldown = 0;
+    sharks[1].lastSeen = { x: p.x, y: p.y };
+    // Right-below: clear sight over the top of the mid pillar.
+    sharks[2].x = 640;
+    sharks[2].y = 330;
+    sharks[2].dir = Math.atan2(p.y - 330, p.x - 640);
+    sharks[2].state = 'chase';
+    sharks[2].suspicion = 1;
+    sharks[2].loseTimer = 99;
+    sharks[2].attackCooldown = 0;
+    sharks[2].lastSeen = { x: p.x, y: p.y };
+    // The diver shoots first: a spear toward the winding-up shark, caught
+    // mid-flight in the frame — a long bright spear, still well short of
+    // the shark. Two tenths of a second of flight puts it clearly in the
+    // open water between diver and shark.
+    world.step(STEP, { x: 0, y: 0, sneak: false, ink: false, fire: true, aimX: 680, aimY: 180 }, false);
+    runSteps(world, 0.2, IDLE);
     return { type: SCREEN_PLAY, world };
   }
   if (id === 'sneak') {
@@ -198,30 +245,47 @@ export function stageShot(id) {
     world.state.player.x = 640;
     world.state.player.y = 120;
     runSteps(world, 2, IDLE);
-    // Then the reef shark closes in and attacks for real: put it in chase just
-    // inside attack range, step through the wind-up, and catch the lunge as it
-    // starts — jaws wide open, teeth out, alarm still climbing.
+    // Two sharks attack at once: the reef shark from the left and the top
+    // guard from the right, both wound up with jaws half open — then both
+    // lunge in the same beat, teeth out, alarm still climbing. The wind-up
+    // is real game logic (fair 0.5s warning, sight kept the whole time); the
+    // positions are just where the two patrols are parked for the shot.
     const shark = world.state.sharks[0];
     shark.x = 560;
     shark.y = 120;
     shark.dir = 0;
-    shark.state = 'chase';
+    shark.state = 'windup';
+    shark.windupTimer = SHARK.windupSeconds;
     shark.suspicion = 1;
     shark.loseTimer = 99;
     shark.attackCooldown = 0;
+    shark.lastSeen = { x: 640, y: 120 };
+    const shark2 = world.state.sharks[1];
+    shark2.x = 730;
+    shark2.y = 150;
+    shark2.dir = Math.atan2(120 - 150, 640 - 730);
+    shark2.state = 'windup';
+    shark2.windupTimer = SHARK.windupSeconds;
+    shark2.suspicion = 1;
+    shark2.loseTimer = 99;
+    shark2.attackCooldown = 0;
+    shark2.lastSeen = { x: 640, y: 120 };
     // The diver shoots first: the harpoon hit tells the shark exactly where
     // the diver is (so it comes straight for them) and slows it down — the
-    // new trade-off, caught in the frame as a chasing shark with a gold slow
-    // chevron under it, mid-lunge a moment later. The chevron is the proof
-    // in the frame that the shark was shot.
+    // new trade-off, caught in the frame as a lunging shark with a gold slow
+    // chevron under it. The chevron is the proof in the frame that the shark
+    // was shot.
     world.step(STEP, { x: 0, y: 0, sneak: false, ink: false, fire: true, aimX: 560, aimY: 120 }, false);
     runSteps(world, 0.4, IDLE);
+    // Both wind-ups end on the same step, so both sharks lunge together —
+    // catch them a breath into the lunge, jaws wide open, still clear of
+    // the diver.
     let lunging = false;
     for (let i = 0; i < Math.round(2 / STEP) && !lunging; i += 1) {
       world.step(STEP, IDLE, false);
       if (shark.state === 'lunge') lunging = true;
     }
-    if (lunging) runSteps(world, 0.05, IDLE);
+    if (lunging) runSteps(world, 0.06, IDLE);
     return { type: SCREEN_PLAY, world };
   }
   if (id === 'harpoon') {
