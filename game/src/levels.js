@@ -4,11 +4,19 @@
 // diver must choose a route, sharks swim fixed patrols, and sonar cameras sweep the
 // chokepoints. Entry is always on the left edge, the whirlpool on the right edge.
 //
-// Geometry is the probe-verified v1 layout, unchanged: the autopilot's routes,
-// the wall sight-lines and the staged alarm scene all still hold.
+// Walls come in three kinds, all with the same rectangle collision the renderer
+// draws inside of — so what you see is what blocks you:
+//   block  — ruined stone-block walls (the old look), long and straight;
+//   rock   — boulder clusters, irregular lumps of coral rock in varied sizes;
+//   pillar — tall narrow stone columns that split a corridor in two.
+// The layouts are tighter than the first version: narrower corridors, more turns,
+// dead-end pockets and alternate routes, so the diver has to read the patrols
+// instead of swimming straight across. The probe-verified anchors stay put: the
+// level-1 mid pillar, the kelp beds the probe hides in, and the sonar sight-line
+// the alarm scene parks on.
 
-function rock(x, y, w, h) {
-  return { x, y, w, h };
+function rock(x, y, w, h, kind) {
+  return { x, y, w, h, kind: kind || 'block' };
 }
 
 function kelp(x, y, w, h) {
@@ -26,7 +34,7 @@ export const LEVELS = [
   {
     name: '1 · The Coral Reef',
     theme: 'reef',
-    hint: 'One shark, one sonar camera. Learn the cones, take the pearl, then dive into the whirlpool.',
+    hint: 'One shark, one sonar camera. Learn the cones, shoot the harpoon with Space if it spots you, take the pearl, then dive into the whirlpool.',
     timeLimit: 120,
     entry: { x: 64, y: 360 },
     exit: { x: 1172, y: 300, w: 64, h: 120 },
@@ -34,9 +42,14 @@ export const LEVELS = [
       ...BORDER,
       rock(280, 120, 180, 36),
       rock(280, 564, 180, 36),
-      rock(560, 300, 36, 140),
+      rock(560, 300, 36, 140, 'pillar'),
       rock(820, 120, 180, 36),
       rock(820, 564, 180, 36),
+      rock(700, 230, 80, 54, 'rock'),
+      rock(700, 440, 80, 54, 'rock'),
+      rock(180, 280, 56, 44, 'rock'),
+      rock(980, 300, 36, 110, 'pillar'),
+      rock(1080, 180, 60, 44, 'rock'),
     ],
     kelp: [
       kelp(120, 90, 100, 80),
@@ -58,7 +71,7 @@ export const LEVELS = [
   {
     name: '2 · The Shipwreck',
     theme: 'wreck',
-    hint: 'Two sharks cross the wreck. The sapphire sits in the middle — time it, then ride the whirlpool out.',
+    hint: 'Two sharks cross the wreck and they bite now — dodge the wind-up, hide in the kelp, or stun one with the harpoon. The sapphire sits in the middle.',
     timeLimit: 120,
     entry: { x: 64, y: 360 },
     exit: { x: 1172, y: 300, w: 64, h: 120 },
@@ -70,6 +83,11 @@ export const LEVELS = [
       rock(760, 100, 200, 40),
       rock(760, 580, 200, 40),
       rock(1040, 300, 40, 140),
+      rock(620, 120, 70, 50, 'rock'),
+      rock(620, 560, 70, 50, 'rock'),
+      rock(930, 340, 36, 100, 'pillar'),
+      rock(300, 280, 56, 44, 'rock'),
+      rock(1080, 120, 64, 48, 'rock'),
     ],
     kelp: [
       kelp(120, 540, 110, 90),
@@ -94,7 +112,7 @@ export const LEVELS = [
   {
     name: '3 · The Deep Trench',
     theme: 'trench',
-    hint: 'Three sharks, three sonar cameras, one chest of gold. Ink the cameras, swim, and escape through the whirlpool.',
+    hint: 'Three sharks, three sonar cameras, one chest of gold. Ink the cameras, stun the sharks, swim, and escape through the whirlpool.',
     timeLimit: 150,
     entry: { x: 64, y: 360 },
     exit: { x: 1172, y: 300, w: 64, h: 120 },
@@ -108,6 +126,11 @@ export const LEVELS = [
       rock(880, 200, 40, 320),
       rock(1060, 90, 120, 40),
       rock(1060, 590, 120, 40),
+      rock(540, 90, 60, 48, 'rock'),
+      rock(540, 590, 60, 48, 'rock'),
+      rock(960, 320, 36, 100, 'pillar'),
+      rock(740, 330, 64, 50, 'rock'),
+      rock(240, 280, 56, 46, 'rock'),
     ],
     kelp: [
       kelp(120, 540, 110, 90),

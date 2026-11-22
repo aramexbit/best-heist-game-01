@@ -14,6 +14,7 @@ import {
   SONAR,
   FIELD,
   SHARK,
+  HARPOON,
   INK,
   LIVES,
   LOOT,
@@ -30,6 +31,14 @@ export const EVENT_CLEAR = 16;
 export const EVENT_WIN = 32;
 export const EVENT_OVER = 64;
 export const EVENT_INK = 128;
+/** A harpoon was fired. */
+export const EVENT_HARPOON = 256;
+/** A harpoon hit a shark and stunned it. */
+export const EVENT_HARPOON_HIT = 512;
+/** A shark finished its wind-up and lunged. */
+export const EVENT_ATTACK = 1024;
+/** A shark started its wind-up telegraph — the audible warning before the bite. */
+export const EVENT_WINDUP = 2048;
 
 /** Smallest angle between two headings, in radians. */
 function angleDiff(a, b) {
@@ -100,6 +109,11 @@ export function createWorld(random) {
     timeLeft: 0,
     phase: 'play',
     inkCharges: INK.charges,
+    /** Harpoons in flight, the gun's cooldown, and how long the ink cloud
+     * still hides the diver from sharks as well as sonar. */
+    harpoons: [],
+    harpoonCooldown: 0,
+    inkTimer: 0,
     lockdowns: 0,
     lootTaken: 0,
     lootValue: 0,
@@ -132,6 +146,15 @@ export function createWorld(random) {
       loseTimer: 0,
       huntTimer: 0,
       stuckTimer: 0,
+      /** Attack timers: wind-up telegraph, lunge, recovery cooldown, and the
+       * stun a harpoon hit leaves behind. All zero means ready to attack. */
+      attackCooldown: 0,
+      windupTimer: 0,
+      lungeTimer: 0,
+      lungeDirX: 1,
+      lungeDirY: 0,
+      recoverTimer: 0,
+      stunTimer: 0,
       lastSeen: { x: g.waypoints[0].x, y: g.waypoints[0].y },
     }));
     state.sonars = level.sonars.map((c, i) => ({
@@ -158,6 +181,9 @@ export function createWorld(random) {
     state.timeLeft = level.timeLimit;
     state.phase = 'play';
     state.inkCharges = INK.charges;
+    state.harpoons = [];
+    state.harpoonCooldown = 0;
+    state.inkTimer = 0;
     state.lootTaken = 0;
     state.lootValue = 0;
     state.clearBonus = 0;
@@ -239,6 +265,9 @@ export function createWorld(random) {
   }
 
   function sharkSeesPlayer(shark) {
+    // The ink cloud hides the diver from sharks too, for as long as it lasts —
+    // it is the escape button when a shark is already on your tail.
+    if (state.inkTimer > 0) return 0;
     const p = state.player;
     const dx = p.x - shark.x;
     const dy = p.y - shark.y;
@@ -264,6 +293,7 @@ export function createWorld(random) {
     state.player.x = level.entry.x;
     state.player.y = level.entry.y;
     state.player.invulnerable = 2;
+    state.harpoons = [];
     for (const shark of state.sharks) {
       shark.x = shark.waypoints[0].x;
       shark.y = shark.waypoints[0].y;
@@ -274,14 +304,20 @@ export function createWorld(random) {
       shark.loseTimer = 0;
       shark.huntTimer = 0;
       shark.stuckTimer = 0;
+      shark.attackCooldown = 0;
+      shark.windupTimer = 0;
+      shark.lungeTimer = 0;
+      shark.recoverTimer = 0;
+      shark.stunTimer = 0;
     }
   }
 
   /**
-   * One fixed step. `input` is {x, y, sneak, ink}: a steering vector (-1..1 each
-   * way), whether the diver swims slow, and a one-shot ink burst press. With `demo`
-   * set the sharks patrol and the sonar sweeps but nothing detects, scores or ends
-   * — the title screen's living backdrop.
+   * One fixed step. `input` is {x, y, sneak, ink, fire, aimX, aimY}: a steering
+   * vector (-1..1 each way), whether the diver swims slow, a one-shot ink burst
+   * press, and a one-shot harpoon press with the aim point in field coordinates.
+   * With `demo` set the sharks patrol and the sonar sweeps but nothing detects,
+   * scores or ends — the title screen's living backdrop.
    */
   function step(dt, input, demo) {
     let events = 0;
@@ -293,6 +329,9 @@ export function createWorld(random) {
       if (state.messageTimer <= 0) state.message = '';
     }
 
+    // The ink cloud thins with time; while it lasts, sharks cannot see the diver.
+    if (state.inkTimer > 0) state.inkTimer = Math.max(0, state.inkTimer - dt);
+
     // Sonar cameras always sweep, even on the title screen.
     for (const sonar of state.sonars) {
       sonar.angle = sonar.baseAngle + sonar.arc * Math.sin((state.elapsed * Math.PI * 2) / sonar.period + sonar.phase);
@@ -300,8 +339,84 @@ export function createWorld(random) {
       sonar.spotted = false;
     }
 
-    // Sharks always swim their patrols.
+    // Sharks always swim their patrols — and their attacks. The state machine:
+    // patrol -> chase (spotted) -> windup (telegraph, half a second) -> lunge
+    // (the bite) -> recover (cooldown) -> chase or patrol. A harpoon hit leaves
+    // the shark 'stunned' and harmless for a few seconds. A chasing shark that
+    // cannot see the diver swims to where it last saw them, then gives up:
+    // hiding in kelp or breaking line of sight around a rock really does lose it.
     for (const shark of state.sharks) {
+      if (shark.attackCooldown > 0) shark.attackCooldown -= dt;
+      if (shark.state === 'stunned') {
+        shark.stunTimer -= dt;
+        if (shark.stunTimer <= 0) {
+          shark.state = 'patrol';
+          shark.suspicion = 0;
+        }
+        continue;
+      }
+      if (shark.state === 'windup') {
+        // Telegraph: the shark rears and tracks the diver but does not move, so
+        // the diver has a fair half-second to dodge. Lose sight (kelp, rock,
+        // ink) and the attack is called off.
+        shark.dir = Math.atan2(state.player.y - shark.y, state.player.x - shark.x);
+        if (sharkSeesPlayer(shark) === 0) {
+          shark.state = 'chase';
+          shark.windupTimer = 0;
+          continue;
+        }
+        shark.windupTimer -= dt;
+        if (shark.windupTimer <= 0) {
+          const dx = state.player.x - shark.x;
+          const dy = state.player.y - shark.y;
+          const dist = Math.hypot(dx, dy) || 1;
+          shark.lungeDirX = dx / dist;
+          shark.lungeDirY = dy / dist;
+          shark.dir = Math.atan2(dy, dx);
+          shark.lungeTimer = SHARK.lungeSeconds;
+          shark.state = 'lunge';
+          events |= EVENT_ATTACK;
+        }
+        continue;
+      }
+      if (shark.state === 'lunge') {
+        // The bite: a fast straight burst along the line fixed at wind-up end.
+        // Rocks stop it, and a diver who moved clear is simply not there.
+        const vx = shark.lungeDirX * SHARK.lungeSpeed * dt;
+        const vy = shark.lungeDirY * SHARK.lungeSpeed * dt;
+        moveCircle(shark, vx, vy, SHARK.radius);
+        shark.lungeTimer -= dt;
+        if (!demo && state.phase === 'play' && state.player.invulnerable === 0) {
+          const dx = state.player.x - shark.x;
+          const dy = state.player.y - shark.y;
+          if (dx * dx + dy * dy < SHARK.catchRadius * SHARK.catchRadius) {
+            state.lives -= 1;
+            events |= EVENT_CAUGHT;
+            if (state.lives <= 0) {
+              state.phase = 'over';
+              events |= EVENT_OVER;
+              return events;
+            }
+            respawnAfterCaught();
+            continue;
+          }
+        }
+        if (shark.lungeTimer <= 0) {
+          shark.state = 'recover';
+          shark.recoverTimer = SHARK.attackCooldownSeconds;
+          shark.attackCooldown = SHARK.attackCooldownSeconds;
+        }
+        continue;
+      }
+      if (shark.state === 'recover') {
+        // Spent: the shark drifts, slow and harmless, until it is ready again.
+        shark.recoverTimer -= dt;
+        if (shark.recoverTimer <= 0) {
+          shark.state = sharkSeesPlayer(shark) > 0 ? 'chase' : 'patrol';
+          shark.suspicion = shark.state === 'chase' ? 1 : 0.4;
+        }
+        continue;
+      }
       if (shark.state === 'patrol') {
         if (shark.pauseTimer > 0) {
           shark.pauseTimer -= dt;
@@ -335,8 +450,12 @@ export function createWorld(random) {
           }
         }
       } else if (shark.state === 'chase' || shark.state === 'hunt') {
-        const tx = shark.state === 'chase' ? state.player.x : shark.lastSeen.x;
-        const ty = shark.state === 'chase' ? state.player.y : shark.lastSeen.y;
+        // A chasing shark swims at the diver only while it can see them; blind
+        // (kelp, rock, ink) it swims to the last-seen spot instead, and gives
+        // up after a short while — fleeing around a corner works.
+        const sees = sharkSeesPlayer(shark) > 0;
+        const tx = shark.state === 'chase' && sees ? state.player.x : shark.lastSeen.x;
+        const ty = shark.state === 'chase' && sees ? state.player.y : shark.lastSeen.y;
         const dx = tx - shark.x;
         const dy = ty - shark.y;
         const dist = Math.hypot(dx, dy);
@@ -373,11 +492,77 @@ export function createWorld(random) {
     }
     moveCircle(player, nx * speed * dt, ny * speed * dt, DIVER.radius);
 
-    // Ink burst: one charge blinds every sonar camera for a while.
+    // Ink burst: one charge blinds every sonar camera for a while — and the
+    // cloud hides the diver from sharks too, so it is also the escape button
+    // when a shark is already on your tail.
     if (input.ink && state.inkCharges > 0) {
       state.inkCharges -= 1;
       for (const sonar of state.sonars) sonar.disabled = INK.disableSeconds;
+      state.inkTimer = INK.disableSeconds;
       events |= EVENT_INK;
+    }
+
+    // Harpoon gun: Space fires one spear toward the aim point (the mouse
+    // cursor, or the way the diver faces). Unlimited spears, but the gun
+    // needs a short cooldown between shots.
+    if (state.harpoonCooldown > 0) state.harpoonCooldown -= dt;
+    if (input.fire && state.harpoonCooldown <= 0) {
+      const aimX = typeof input.aimX === 'number' ? input.aimX : player.x + player.dirX * 240;
+      const aimY = typeof input.aimY === 'number' ? input.aimY : player.y + player.dirY * 240;
+      const dx = aimX - player.x;
+      const dy = aimY - player.y;
+      const len = Math.hypot(dx, dy);
+      if (len > 4) {
+        state.harpoons.push({
+          x: player.x + (dx / len) * (DIVER.radius + 6),
+          y: player.y + (dy / len) * (DIVER.radius + 6),
+          dx: dx / len,
+          dy: dy / len,
+          traveled: 0,
+        });
+        state.harpoonCooldown = HARPOON.cooldownSeconds;
+        events |= EVENT_HARPOON;
+      }
+    }
+
+    // Harpoons in flight: they fly straight until they run out of range, hit
+    // a rock (they stick and sink), or hit a shark — a hit stuns the shark
+    // for a few seconds. They never touch the treasure: loot is only pocketed
+    // by swimming over it.
+    for (let i = state.harpoons.length - 1; i >= 0; i -= 1) {
+      const h = state.harpoons[i];
+      h.x += h.dx * HARPOON.speed * dt;
+      h.y += h.dy * HARPOON.speed * dt;
+      h.traveled += HARPOON.speed * dt;
+      let spent = h.traveled >= HARPOON.range;
+      if (!spent) {
+        for (const wall of state.level.walls) {
+          if (circleHitsRect(h.x, h.y, HARPOON.radius, wall)) {
+            spent = true;
+            break;
+          }
+        }
+      }
+      if (!spent) {
+        for (const shark of state.sharks) {
+          if (shark.state === 'stunned') continue;
+          const dx = shark.x - h.x;
+          const dy = shark.y - h.y;
+          if (dx * dx + dy * dy < (SHARK.radius + HARPOON.radius) * (SHARK.radius + HARPOON.radius)) {
+            shark.state = 'stunned';
+            shark.stunTimer = HARPOON.stunSeconds;
+            shark.suspicion = 0;
+            shark.attackCooldown = 0;
+            shark.windupTimer = 0;
+            shark.lungeTimer = 0;
+            shark.recoverTimer = 0;
+            events |= EVENT_HARPOON_HIT;
+            spent = true;
+            break;
+          }
+        }
+      }
+      if (spent) state.harpoons.splice(i, 1);
     }
 
     // Treasure: swim over it to pocket it.
@@ -394,10 +579,12 @@ export function createWorld(random) {
       }
     }
 
-    // Who sees the diver right now?
+    // Who sees the diver right now? Sharks mid-attack or stunned do not detect:
+    // a winding-up shark is committed to its lunge, a stunned one sees nothing.
     let seen = false;
     const sneakFactor = player.sneaking ? 0.5 : 1;
     for (const shark of state.sharks) {
+      if (shark.state === 'stunned' || shark.state === 'windup' || shark.state === 'lunge' || shark.state === 'recover') continue;
       const dist = sharkSeesPlayer(shark);
       if (dist > 0 && player.invulnerable === 0) {
         seen = true;
@@ -407,10 +594,17 @@ export function createWorld(random) {
         shark.suspicion = Math.min(1, shark.suspicion + rate * sneakFactor * dt);
         if (shark.suspicion >= 1 && shark.state !== 'chase') {
           shark.state = 'chase';
-          shark.loseTimer = SHARK.loseSightSeconds;
+          shark.loseTimer = SHARK.blindGiveUpSeconds;
           events |= EVENT_SPOTTED;
         }
-        if (shark.state === 'chase') shark.loseTimer = SHARK.loseSightSeconds;
+        if (shark.state === 'chase') shark.loseTimer = SHARK.blindGiveUpSeconds;
+        // Close, seen and ready: the shark winds up its attack instead of
+        // catching on touch. The wind-up is the fair warning.
+        if ((shark.state === 'chase' || shark.state === 'hunt') && shark.attackCooldown <= 0 && dist <= SHARK.attackRange) {
+          shark.state = 'windup';
+          shark.windupTimer = SHARK.windupSeconds;
+          events |= EVENT_WINDUP;
+        }
       } else {
         shark.suspicion = Math.max(0, shark.suspicion - dt * 0.5);
         if (shark.state === 'chase') {
@@ -419,21 +613,6 @@ export function createWorld(random) {
             shark.state = 'patrol';
             shark.suspicion = 0.4;
           }
-        }
-      }
-      // A chasing or hunting shark that reaches the diver catches them.
-      if ((shark.state === 'chase' || shark.state === 'hunt') && player.invulnerable === 0) {
-        const dx = player.x - shark.x;
-        const dy = player.y - shark.y;
-        if (dx * dx + dy * dy < SHARK.catchRadius * SHARK.catchRadius) {
-          state.lives -= 1;
-          events |= EVENT_CAUGHT;
-          if (state.lives <= 0) {
-            state.phase = 'over';
-            events |= EVENT_OVER;
-            return events;
-          }
-          respawnAfterCaught();
         }
       }
     }
@@ -448,7 +627,7 @@ export function createWorld(random) {
     if (seen) {
       let rise = 0;
       for (const shark of state.sharks) {
-        if (sharkSeesPlayer(shark) > 0 && player.invulnerable === 0) rise += ALARM.sharkPerSecond;
+        if (shark.state !== 'stunned' && sharkSeesPlayer(shark) > 0 && player.invulnerable === 0) rise += ALARM.sharkPerSecond;
       }
       for (const sonar of state.sonars) {
         if (sonar.spotted) rise += SONAR.alarmPerSecond;

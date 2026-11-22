@@ -1,12 +1,14 @@
 // Keyboard and pointer input for Sunken Vault. Held keys give a steering vector;
-// one-shot presses (confirm, pause, ink burst, mute) are queued as bit flags and
-// taken once by the loop, so a press between two frames is never lost or counted
-// twice. Holding the mouse button steers the diver toward the pointer instead.
+// one-shot presses (confirm, pause, ink burst, harpoon, mute) are queued as bit
+// flags and taken once by the loop, so a press between two frames is never lost
+// or counted twice. Holding the mouse button steers the diver toward the pointer
+// instead. The pointer's last position is kept as the harpoon's aim point.
 
 export const ACTION_CONFIRM = 1;
 export const ACTION_PAUSE = 2;
 export const ACTION_INK = 4;
 export const ACTION_MUTE = 8;
+export const ACTION_HARPOON = 16;
 
 const LEFT = new Set(['ArrowLeft', 'KeyA']);
 const RIGHT = new Set(['ArrowRight', 'KeyD']);
@@ -17,6 +19,7 @@ const CONFIRM = new Set(['Space', 'Enter']);
 const PAUSE = new Set(['KeyP', 'Escape']);
 const INK = new Set(['KeyQ']);
 const MUTE = new Set(['KeyM']);
+const HARPOON = new Set(['Space']);
 
 export function createInput(target, toField) {
   let left = false;
@@ -26,6 +29,7 @@ export function createInput(target, toField) {
   let sneak = false;
   let actions = 0;
   let pointer = null;
+  let aimClient = null;
 
   window.addEventListener('keydown', (event) => {
     if (LEFT.has(event.code)) left = true;
@@ -35,6 +39,9 @@ export function createInput(target, toField) {
     else if (SNEAK.has(event.code)) sneak = true;
     else if (CONFIRM.has(event.code)) {
       if (!event.repeat) actions |= ACTION_CONFIRM;
+      // Space is both confirm (on menus) and the harpoon trigger (in play);
+      // the loop only reads the harpoon flag while playing.
+      if (!event.repeat && HARPOON.has(event.code)) actions |= ACTION_HARPOON;
     } else if (PAUSE.has(event.code)) {
       if (!event.repeat) actions |= ACTION_PAUSE;
     } else if (INK.has(event.code)) {
@@ -60,13 +67,17 @@ export function createInput(target, toField) {
     down = false;
     sneak = false;
     pointer = null;
+    aimClient = null;
     actions = 0;
   });
   target.addEventListener('pointerdown', (event) => {
     actions |= ACTION_CONFIRM;
     pointer = { x: event.clientX, y: event.clientY };
+    aimClient = { x: event.clientX, y: event.clientY };
   });
   target.addEventListener('pointermove', (event) => {
+    // The harpoon aims at the cursor even when the button is not held.
+    aimClient = { x: event.clientX, y: event.clientY };
     if (pointer) pointer = { x: event.clientX, y: event.clientY };
   });
   target.addEventListener('pointerup', () => {
@@ -93,6 +104,11 @@ export function createInput(target, toField) {
       const taken = actions;
       actions = 0;
       return taken;
+    },
+    /** The cursor's last position in client coordinates, or null before the
+     * pointer has ever moved — the harpoon's aim point. */
+    aim() {
+      return aimClient;
     },
   };
 }

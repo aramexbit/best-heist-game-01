@@ -26,7 +26,7 @@
 // crosses, sharks with red sense cones, sonar cameras (dome cameras on seabed
 // mounts, labelled SONAR), the treasure, and the ALARM meter in the HUD.
 
-import { ALARM, SONAR, FIELD, FONT, SHARK, LOOT, PALETTE, DIVER, THEMES } from './config.js';
+import { ALARM, SONAR, FIELD, FONT, SHARK, HARPOON, LOOT, PALETTE, DIVER, THEMES } from './config.js';
 
 export const SCREEN_TITLE = 'title';
 export const SCREEN_PLAY = 'play';
@@ -114,8 +114,11 @@ export function createRenderer(canvas) {
       ctx.ellipse(px, py, rx, ry, 0, 0, Math.PI * 2);
       ctx.fill();
     }
-    // Pebbles: small grey-blue stones scattered over the whole seabed.
-    for (let i = 0; i < 44; i += 1) {
+    // Pebbles: small grey-blue stones scattered over the whole seabed. Kept
+    // sparse on purpose — each one is high-frequency detail that costs bytes
+    // in the dossier screenshots, and the floor is already busy with tiles,
+    // cracks and caustics.
+    for (let i = 0; i < 16; i += 1) {
       const px = (i * 173 + 41) % FIELD.width;
       const py = (i * 97 + 53) % FIELD.height;
       ctx.fillStyle = i % 3 === 0 ? theme.pebble : theme.pebbleDark;
@@ -128,7 +131,7 @@ export function createRenderer(canvas) {
     // Shells: little pale arcs scattered on the seabed.
     ctx.strokeStyle = 'rgba(240, 230, 210, 0.6)';
     ctx.lineWidth = 2;
-    for (let i = 0; i < 14; i += 1) {
+    for (let i = 0; i < 10; i += 1) {
       const sx = (i * 211 + 90) % FIELD.width;
       const sy = (i * 139 + 70) % FIELD.height;
       ctx.beginPath();
@@ -157,7 +160,7 @@ export function createRenderer(canvas) {
     // Cracks: short jagged dark lines scattered on the tiles.
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
     ctx.lineWidth = 1.5;
-    for (let i = 0; i < 4; i += 1) {
+    for (let i = 0; i < 3; i += 1) {
       let cx0 = (i * 263 + 120) % FIELD.width;
       let cy0 = (i * 179 + 80) % FIELD.height;
       ctx.beginPath();
@@ -173,8 +176,8 @@ export function createRenderer(canvas) {
     // Caustics: wavy nets of light crawling over the seabed.
     ctx.strokeStyle = 'rgba(255, 255, 220, 0.10)';
     ctx.lineWidth = 2;
-    for (let i = 0; i < 5; i += 1) {
-      const y = 120 + i * 120;
+    for (let i = 0; i < 3; i += 1) {
+      const y = 120 + i * 200;
       const drift = Math.sin(world.state.elapsed * 0.6 + i * 1.3) * 26;
       ctx.beginPath();
       ctx.moveTo(0, y);
@@ -200,7 +203,7 @@ export function createRenderer(canvas) {
 
     // Decorative reef fish: tiny, colourful, far away — the frame stays busy.
     const fishColors = ['#ff8c42', '#4fc3f7', '#ffd166', '#ff7eb6'];
-    for (let i = 0; i < 5; i += 1) {
+    for (let i = 0; i < 3; i += 1) {
       const lane = 120 + (i % 4) * 150;
       const speed = 22 + (i % 3) * 9;
       const dir = i % 2 === 0 ? 1 : -1;
@@ -227,7 +230,7 @@ export function createRenderer(canvas) {
     // Ambient bubble streams rising from vents in the seabed.
     ctx.strokeStyle = PALETTE.bubble;
     ctx.lineWidth = 1.5;
-    for (let v = 0; v < 3; v += 1) {
+    for (let v = 0; v < 2; v += 1) {
       const bx = 300 + v * 340;
       for (let b = 0; b < 4; b += 1) {
         const t = (world.state.elapsed * 0.25 + b * 0.25 + v * 0.13) % 1;
@@ -398,6 +401,147 @@ export function createRenderer(canvas) {
     ctx.textAlign = 'left';
   }
 
+  /** A boulder cluster: an irregular lump of coral rock inscribed in the same
+   * collision rectangle — a rounded base, overlapping edge bumps that break
+   * the straight box line (kept inside the rectangle, so the picture never
+   * outgrows what blocks you), cracks, pits and a coral sprig or two. */
+  function drawRockBoulder(world, wall, index) {
+    const theme = THEMES[world.state.level.theme] || THEMES.reef;
+    const corals = theme.corals || [theme.coral, theme.coral2];
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.fillRect(wall.x + 6, wall.y + wall.h + 5, wall.w, 4);
+    ctx.fillRect(wall.x + wall.w + 5, wall.y + 6, 4, wall.h);
+    // Base: a rounded slab of dark rock.
+    ctx.fillStyle = theme.rock;
+    roundRect(ctx, wall.x + 2, wall.y + 2, wall.w - 4, wall.h - 4, 12);
+    ctx.fill();
+    // Edge bumps: overlapping circles along the rim, so no side stays straight.
+    ctx.fillStyle = theme.rockTop;
+    const bumps = Math.max(3, Math.floor((wall.w + wall.h) / 26));
+    for (let b = 0; b < bumps; b += 1) {
+      const t = bumps === 1 ? 0.5 : b / (bumps - 1);
+      const side = b % 4;
+      let bx;
+      let by;
+      if (side === 0) { bx = wall.x + 6 + t * (wall.w - 12); by = wall.y + 5; }
+      else if (side === 1) { bx = wall.x + wall.w - 5; by = wall.y + 6 + t * (wall.h - 12); }
+      else if (side === 2) { bx = wall.x + 6 + t * (wall.w - 12); by = wall.y + wall.h - 5; }
+      else { bx = wall.x + 5; by = wall.y + 6 + t * (wall.h - 12); }
+      ctx.beginPath();
+      ctx.arc(bx, by, 5 + ((index + b) % 3) * 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Lit top edge and dark underside, for volume.
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(wall.x + 10, wall.y + 4);
+    ctx.lineTo(wall.x + wall.w - 10, wall.y + 4);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    roundRect(ctx, wall.x + 2, wall.y + wall.h - 10, wall.w - 4, 8, 6);
+    ctx.fill();
+    // Cracks and pits across the rock face.
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.lineWidth = 1.5;
+    for (let c = 0; c < 2; c += 1) {
+      let cx0 = wall.x + 10 + ((index * 31 + c * 47) % Math.max(1, wall.w - 24));
+      let cy0 = wall.y + 10 + ((index * 17 + c * 29) % Math.max(1, wall.h - 22));
+      ctx.beginPath();
+      ctx.moveTo(cx0, cy0);
+      for (let s = 0; s < 2; s += 1) {
+        cx0 += 8 + ((index + c + s) % 3) * 5;
+        cy0 += ((index * 3 + s * 7) % 9) - 4;
+        ctx.lineTo(cx0, cy0);
+      }
+      ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+    const pits = Math.floor((wall.w * wall.h) / 2200);
+    for (let p = 0; p < pits; p += 1) {
+      const px = wall.x + 8 + ((p * 53 + index * 29) % Math.max(1, wall.w - 16));
+      const py = wall.y + 10 + ((p * 37 + index * 17) % Math.max(1, wall.h - 18));
+      ctx.beginPath();
+      ctx.arc(px, py, 1.5 + (p % 2), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // One or two coral sprigs growing on top.
+    for (let s = 0; s < 2; s += 1) {
+      const cx = wall.x + wall.w * (0.3 + s * 0.4);
+      const cy = wall.y + 6;
+      const col = corals[(index + s) % corals.length];
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy + 5);
+      ctx.lineTo(cx - 3, cy - 3);
+      ctx.lineTo(cx - 5, cy - 8);
+      ctx.moveTo(cx - 3, cy - 3);
+      ctx.lineTo(cx - 1, cy - 9);
+      ctx.moveTo(cx, cy + 5);
+      ctx.lineTo(cx + 3, cy - 4);
+      ctx.lineTo(cx + 5, cy - 9);
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+    }
+  }
+
+  /** A pillar: a tall narrow stone column that splits a corridor in two —
+   * stacked courses, a cap slab on top and a wider base, all inside the
+   * collision rectangle. */
+  function drawPillar(world, wall, index) {
+    const theme = THEMES[world.state.level.theme] || THEMES.reef;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.fillRect(wall.x + 6, wall.y + wall.h + 5, wall.w, 4);
+    ctx.fillRect(wall.x + wall.w + 5, wall.y + 6, 4, wall.h);
+    ctx.fillStyle = theme.stoneSide;
+    ctx.fillRect(wall.x + 4, wall.y + wall.h, wall.w, 5);
+    ctx.fillRect(wall.x + wall.w, wall.y + 4, 5, wall.h);
+    ctx.fillStyle = theme.stoneFace;
+    ctx.fillRect(wall.x, wall.y, wall.w, wall.h);
+    // Horizontal courses, staggered vertical joints — a stacked column.
+    ctx.strokeStyle = theme.stoneMortar;
+    ctx.lineWidth = 1.5;
+    for (let cy = wall.y + 14; cy < wall.y + wall.h; cy += 14) {
+      ctx.beginPath();
+      ctx.moveTo(wall.x, cy);
+      ctx.lineTo(wall.x + wall.w, cy);
+      ctx.stroke();
+    }
+    const rowH = 14;
+    for (let cy = wall.y; cy < wall.y + wall.h; cy += rowH) {
+      const row = Math.floor((cy - wall.y) / rowH);
+      const jx = wall.x + (row % 2 === 0 ? wall.w * 0.6 : wall.w * 0.35);
+      ctx.beginPath();
+      ctx.moveTo(jx, cy);
+      ctx.lineTo(jx, Math.min(cy + rowH, wall.y + wall.h));
+      ctx.stroke();
+    }
+    // Cap slab on top and a wider base: the column reads as built, not cut.
+    ctx.fillStyle = theme.rockTop;
+    ctx.fillRect(wall.x - 1, wall.y, wall.w + 2, 7);
+    ctx.fillStyle = theme.rockShade;
+    ctx.fillRect(wall.x - 1, wall.y + wall.h - 8, wall.w + 2, 8);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+    ctx.fillRect(wall.x, wall.y, wall.w, 2);
+    ctx.strokeStyle = theme.rockEdge;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(wall.x, wall.y, wall.w, wall.h);
+    // A small coral tuft on the cap.
+    const col = (theme.corals || [theme.coral])[index % (theme.corals || [theme.coral]).length];
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(wall.x + wall.w / 2, wall.y + 6);
+    ctx.lineTo(wall.x + wall.w / 2 - 4, wall.y - 3);
+    ctx.moveTo(wall.x + wall.w / 2, wall.y + 6);
+    ctx.lineTo(wall.x + wall.w / 2 + 4, wall.y - 3);
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+  }
+
   /** A wall as ruined stone blocks: the same collision rectangle, but the
    * flat box is gone. Block courses with mortar joints, an extruded darker
    * side face on the bottom and right for depth, a lit top edge, and a coral
@@ -407,6 +551,16 @@ export function createRenderer(canvas) {
   function drawStoneWall(world, wall, index) {
     const theme = THEMES[world.state.level.theme] || THEMES.reef;
     const corals = theme.corals || [theme.coral, theme.coral2];
+    // Boulder clusters and pillars draw their own way; the block wall below
+    // is the default. All three stay inside the collision rectangle.
+    if (wall.kind === 'rock') {
+      drawRockBoulder(world, wall, index);
+      return;
+    }
+    if (wall.kind === 'pillar') {
+      drawPillar(world, wall, index);
+      return;
+    }
     const thin = Math.min(wall.w, wall.h) <= 24;
     // Drop shadow below, offset down-right: the wall floats over the floor.
     ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
@@ -895,13 +1049,20 @@ export function createRenderer(canvas) {
     }
   }
 
-  /** A shark in side profile, facing `dir`: a long torpedo body, pointed
-   * snout, crescent tail with a longer upper lobe, tall dorsal fin, swept
-   * pectoral fin, gill slits, one eye and a small mouth — the reference
-   * shape, redrawn in code. It rotates to face where it swims. */
-  function drawShark(shark, chasing) {
+  /** A shark in side profile, facing `dir`: darker and meaner than the first
+   * version — a slate-grey torpedo body, glowing red eyes, pale scars across
+   * the back, a firm jaw line. When it attacks, the jaw drops wide open and
+   * shows two rows of sharp white teeth; when a harpoon stuns it, the eyes go
+   * crossed and stars circle its head. It rotates to face where it swims. */
+  function drawShark(world, shark, chasing) {
+    const elapsed = world.state.elapsed;
+    // Wind-up shake: the shark rears and trembles before it lunges.
+    const shake = shark.state === 'windup' ? Math.sin(elapsed * 40) * 2.5 : 0;
+    // How far the jaw is open: shut while patrolling, half open while winding
+    // up, wide open with teeth during the lunge.
+    const jawOpen = shark.state === 'lunge' ? 1 : shark.state === 'windup' ? 0.45 : 0;
     ctx.save();
-    ctx.translate(shark.x, shark.y);
+    ctx.translate(shark.x, shark.y + shake);
     ctx.rotate(shark.dir);
     // Tail: a crescent with a longer upper lobe, sweeping behind.
     ctx.fillStyle = PALETTE.shark;
@@ -938,6 +1099,15 @@ export function createRenderer(canvas) {
     ctx.closePath();
     ctx.fill();
     ctx.globalAlpha = 1;
+    // Scars: two pale slashes across the back — this shark has fought before.
+    ctx.strokeStyle = PALETTE.sharkScar;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-6, -11);
+    ctx.lineTo(-2, -4);
+    ctx.moveTo(2, -10);
+    ctx.lineTo(6, -3);
+    ctx.stroke();
     // Dorsal fin: a tall triangle on the back.
     ctx.fillStyle = PALETTE.sharkFin;
     ctx.beginPath();
@@ -964,18 +1134,99 @@ export function createRenderer(canvas) {
       ctx.lineTo(14 - g * 3, 2);
       ctx.stroke();
     }
-    // Eye near the snout, and a small mouth line.
-    ctx.fillStyle = '#101c2e';
+    // Eye near the snout: red and glowing — brighter while hunting. A stunned
+    // shark gets crossed-out eyes instead.
+    const eyeGlow = chasing ? 0.9 : 0.55;
+    ctx.fillStyle = 'rgba(255, 59, 48, ' + (eyeGlow * 0.45) + ')';
     ctx.beginPath();
-    ctx.arc(24, -3, 2, 0, Math.PI * 2);
+    ctx.arc(24, -3, 5, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = '#16233d';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(26, 3);
-    ctx.quadraticCurveTo(29, 4, 31, 2);
-    ctx.stroke();
+    if (shark.state === 'stunned') {
+      ctx.strokeStyle = '#101c2e';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(21, -6);
+      ctx.lineTo(27, 0);
+      ctx.moveTo(27, -6);
+      ctx.lineTo(21, 0);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = PALETTE.sharkEye;
+      ctx.beginPath();
+      ctx.arc(24, -3, 2.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#101c2e';
+      ctx.beginPath();
+      ctx.arc(24, -3, 1.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Jaw: a firm dark line at rest; when the shark attacks the lower jaw
+    // drops open and both jaws show sharp white teeth.
+    if (jawOpen > 0) {
+      const drop = jawOpen * 11;
+      // Dark mouth interior.
+      ctx.fillStyle = '#5a0f0f';
+      ctx.beginPath();
+      ctx.moveTo(14, 1);
+      ctx.lineTo(33, 0);
+      ctx.lineTo(30, 2 + drop);
+      ctx.lineTo(12, 6 + drop * 0.4);
+      ctx.closePath();
+      ctx.fill();
+      // Upper teeth: sharp triangles hanging from the snout.
+      ctx.fillStyle = PALETTE.sharkTeeth;
+      for (let t = 0; t < 5; t += 1) {
+        const tx = 17 + t * 3.4;
+        ctx.beginPath();
+        ctx.moveTo(tx, 0);
+        ctx.lineTo(tx + 1.7, 0);
+        ctx.lineTo(tx + 0.85, 5 + jawOpen * 2);
+        ctx.closePath();
+        ctx.fill();
+      }
+      // Lower jaw, dropped open, with small upward teeth.
+      ctx.fillStyle = PALETTE.sharkDark;
+      ctx.strokeStyle = '#16233d';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(30, 2 + drop);
+      ctx.quadraticCurveTo(22, 6 + drop, 12, 5 + drop * 0.5);
+      ctx.lineTo(14, 1);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = PALETTE.sharkTeeth;
+      for (let t = 0; t < 3; t += 1) {
+        const tx = 17 + t * 4;
+        ctx.beginPath();
+        ctx.moveTo(tx, 4 + drop * 0.5);
+        ctx.lineTo(tx + 2, 4 + drop * 0.5);
+        ctx.lineTo(tx + 1, 1 + drop * 0.5);
+        ctx.closePath();
+        ctx.fill();
+      }
+    } else {
+      // Closed jaw: one firm dark line from snout to cheek.
+      ctx.strokeStyle = '#16233d';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(24, 3);
+      ctx.quadraticCurveTo(29, 4, 32, 1);
+      ctx.stroke();
+    }
     ctx.restore();
+    if (shark.state === 'stunned') {
+      // Dizzy stars circling the head while the harpoon stun lasts.
+      ctx.fillStyle = '#ffd166';
+      for (let s = 0; s < 3; s += 1) {
+        const a = elapsed * 2 + (s * Math.PI * 2) / 3;
+        const sx = shark.x + Math.cos(a) * 26;
+        const sy = shark.y - 24 + Math.sin(a) * 6;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
     if (chasing) {
       ctx.fillStyle = '#ff4d4d';
       ctx.font = 'bold 22px ' + FONT;
@@ -1104,6 +1355,60 @@ export function createRenderer(canvas) {
     ctx.textAlign = 'left';
   }
 
+  /** Harpoons in flight: a steel spear with a barbed head, a faint rope line
+   * trailing back toward the diver, and a bubble at the tip. */
+  function drawHarpoons(world) {
+    const state = world.state;
+    for (const h of state.harpoons) {
+      // Rope line back toward the diver.
+      ctx.strokeStyle = PALETTE.harpoonLine;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(state.player.x, state.player.y);
+      ctx.lineTo(h.x, h.y);
+      ctx.stroke();
+      // Shaft and barbed head along the flight direction.
+      const ang = Math.atan2(h.dy, h.dx);
+      ctx.save();
+      ctx.translate(h.x, h.y);
+      ctx.rotate(ang);
+      ctx.strokeStyle = PALETTE.harpoon;
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-16, 0);
+      ctx.lineTo(8, 0);
+      ctx.stroke();
+      ctx.fillStyle = PALETTE.harpoon;
+      ctx.beginPath();
+      ctx.moveTo(8, -4);
+      ctx.lineTo(18, 0);
+      ctx.lineTo(8, 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(8, -4);
+      ctx.lineTo(2, -7);
+      ctx.lineTo(6, -2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(8, 4);
+      ctx.lineTo(2, 7);
+      ctx.lineTo(6, 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.lineCap = 'butt';
+      ctx.restore();
+      // Bubble at the tip.
+      ctx.strokeStyle = PALETTE.bubble;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(h.x - h.dx * 10, h.y - h.dy * 10, 2.5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
   function drawField(world) {
     const state = world.state;
     const level = state.level;
@@ -1159,13 +1464,22 @@ export function createRenderer(canvas) {
       ctx.setLineDash([]);
     }
 
-    // Sharks: sense cone, body, suspicion ring, chase mark.
+    // Sharks: sense cone, body, suspicion ring, chase mark. A winding-up shark
+    // gets a pulsing red ring — the fair warning before the bite.
     for (const shark of state.sharks) {
-      const chasing = shark.state === 'chase' || shark.state === 'hunt';
+      const chasing = shark.state === 'chase' || shark.state === 'hunt' || shark.state === 'windup' || shark.state === 'lunge';
       ctx.fillStyle = chasing ? PALETTE.sharkConeChase : PALETTE.sharkCone;
       conePath(ctx, shark.x, shark.y, shark.dir, SHARK.visionHalfAngle, SHARK.visionRange);
       ctx.fill();
-      drawShark(shark, chasing);
+      if (shark.state === 'windup') {
+        const pulse = 0.5 + Math.sin(world.state.elapsed * 14) * 0.3;
+        ctx.strokeStyle = 'rgba(255, 59, 48, ' + pulse + ')';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(shark.x, shark.y, 34 + Math.sin(world.state.elapsed * 14) * 3, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      drawShark(world, shark, chasing);
       if (shark.suspicion > 0.05 && !chasing) {
         ctx.strokeStyle = 'rgba(238, 241, 245, 0.35)';
         ctx.lineWidth = 4;
@@ -1187,6 +1501,7 @@ export function createRenderer(canvas) {
     drawKelpBack(world, true);
 
     drawDiver(world);
+    drawHarpoons(world);
 
     // Ink burst: while any sonar camera is blinded, a dark cloud hangs on the diver.
     if (state.sonars.some((s) => s.disabled > 0)) {
@@ -1255,15 +1570,25 @@ export function createRenderer(canvas) {
     ctx.stroke();
   }
 
-  /** Control hints along the bottom edge, like the reference's bar. */
-  function drawControlsBar() {
+  /** Control hints along the bottom edge, like the reference's bar. The harpoon
+   * dot is gold while the gun is ready, grey while it cools down. */
+  function drawControlsBar(world) {
+    const harpoonReady = world.state.harpoonCooldown <= 0;
+    const left = 'WASD swim  ·  SHIFT sneak  ·  Q ink burst  ·  SPACE harpoon ';
+    const right = '  ·  Click steer';
+    ctx.font = '12px ' + FONT;
+    const totalW = ctx.measureText(left).width + 16 + ctx.measureText(right).width;
     ctx.fillStyle = 'rgba(3, 16, 28, 0.7)';
-    roundRect(ctx, 12, 686, 340, 24, 8);
+    roundRect(ctx, 12, 686, totalW + 20, 24, 8);
     ctx.fill();
     ctx.fillStyle = PALETTE.muted;
-    ctx.font = '12px ' + FONT;
     ctx.textAlign = 'left';
-    ctx.fillText('WASD swim  ·  SHIFT sneak  ·  Q ink burst  ·  Click steer', 22, 702);
+    ctx.fillText(left, 22, 702);
+    const dotX = 22 + ctx.measureText(left).width;
+    ctx.fillStyle = harpoonReady ? PALETTE.gold : PALETTE.muted;
+    ctx.fillText(harpoonReady ? '●' : '○', dotX, 702);
+    ctx.fillStyle = PALETTE.muted;
+    ctx.fillText(right, dotX + 16, 702);
   }
 
   function drawHud(world) {
@@ -1447,7 +1772,7 @@ export function createRenderer(canvas) {
       drawHud(world);
       drawMessage(world);
       drawMinimap(world);
-      drawControlsBar();
+      drawControlsBar(world);
     }
     // Domes go on top of the HUD (and of the title dimming), so a sonar camera
     // on the top wall is always visible, never buried under a bar or a panel.
@@ -1461,9 +1786,12 @@ export function createRenderer(canvas) {
           'tops out — or your air runs out. Hide in the kelp: sharks and',
           'sonar cannot see through it. Read the dashed patrol lines and',
           'guess where each shark swims next.',
+          'Spotted sharks wind up and lunge — dodge, hide, or shoot back:',
+          'a harpoon stuns a shark for a few seconds.',
           '',
           'WASD / arrows — swim      Shift — slow swim (harder to spot)',
-          'Q — ink burst, blinds the sonar cameras (2 per dive)      Click — also steers the diver',
+          'Q — ink burst, blinds sonar and sharks (2 per dive)      Space — fire the harpoon',
+          'Click — also steers the diver',
         ],
         'Press Space or click to start'
       );

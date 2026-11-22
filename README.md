@@ -22,6 +22,12 @@ portal spinning at the far edge, waiting to carry the loot to another dimension.
   one piece aboard.
 - **Don't get seen.** Being spotted fills the alarm meter; a full alarm puts the
   whole reef on alert, costs $100, and sends every shark hunting for you.
+  A shark that spots you winds up and lunges with its jaws open — dodge during
+  the wind-up, duck into the kelp (it loses your trail), break line of sight
+  around a rock, or blind it with ink.
+- **Shoot back.** Space fires the harpoon gun toward the mouse cursor (or the
+  way the diver faces). A hit stuns a shark for a few seconds — it never kills,
+  so the reef stays dangerous. The gun needs a short cooldown between shots.
 - **Escape.** Reach the whirlpool before your air runs out. Score is treasure
   plus a time bonus, minus lockdown penalties.
 
@@ -31,7 +37,8 @@ portal spinning at the far edge, waiting to carry the loot to another dimension.
 | --- | --- |
 | WASD / arrow keys | Swim (hold the mouse button to steer instead) |
 | Shift | Slow swim — slower, but half as easy to spot |
-| Q | Ink burst, blinds the sonar cameras for 8 seconds (2 charges per dive) |
+| Q | Ink burst, blinds the sonar cameras and the sharks for 8 seconds (2 charges per dive) |
+| Space | Fire the harpoon toward the mouse cursor (stuns a shark for a few seconds) |
 | P / Esc | Pause |
 | M | Mute |
 | Space / click | Confirm on menus |
@@ -44,7 +51,7 @@ it locally with `node serve.ts` and visit <http://localhost:8080>.
 ## Screenshots
 
 ![Mid-dive: the diver crossing the reef](screenshots/01-play.png)
-![Caught in a sonar cone, alarm climbing](screenshots/02-alarm.png)
+![Caught in a sonar cone while a shark lunges, jaws open](screenshots/02-alarm.png)
 ![Dive clear](screenshots/03-clear.png)
 ![Title screen](screenshots/04-title.png)
 
@@ -57,9 +64,9 @@ outside the grader).
 ## Layout
 
 - `game/index.html` — the page; `game/src/main.js` — the loop and screens.
-- `game/src/world.js` — the rules: diver, sharks, sonar cameras, kelp, treasure, alarm, score.
-- `game/src/levels.js` — the three dive sites. `game/src/render.js` — all drawing, hand-drawn in canvas.
-- `game/src/input.js` — keyboard + pointer. `game/src/audio.js` — WebAudio blips.
+- `game/src/world.js` — the rules: diver, sharks, sonar cameras, kelp, treasure, alarm, score. Sharks wind up and lunge when they spot you; the harpoon gun stuns them.
+- `game/src/levels.js` — the three dive sites: stone-block walls, boulder clusters and pillars. `game/src/render.js` — all drawing, hand-drawn in canvas.
+- `game/src/input.js` — keyboard + pointer (Space fires the harpoon at the cursor). `game/src/audio.js` — WebAudio blips.
 - `game/src/shots.js` — the staged screenshot scenes (a cone-aware autopilot
   plays the game for real) and `shots.json` lists the four captures.
 - `main.ts` — the build script. `serve.ts` — the local static server.

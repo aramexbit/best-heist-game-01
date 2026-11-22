@@ -34,10 +34,37 @@ export const SHARK = {
   /** How fast suspicion (0..1) grows while the diver is inside the cone and in sight. */
   detectNear: 1.25,
   detectFar: 0.6,
-  /** Seconds without sight before a chasing shark gives up and goes back to patrol. */
-  loseSightSeconds: 3,
   /** Radius inside which a chasing shark catches the diver. */
   catchRadius: 26,
+  /** A shark only hurts the diver with a telegraphed attack, never by touch:
+   * inside this range, with clear sight, it winds up (0.5s warning) and then
+   * lunges. Dodging during the wind-up, ducking into kelp, or blinding it
+   * with ink all break the attack. */
+  attackRange: 110,
+  /** Seconds the shark telegraphs before it lunges: it rears, shakes and its
+   * jaws start to open, so the diver has time to dodge or hide. */
+  windupSeconds: 0.5,
+  /** Seconds a lunge lasts, and how fast the shark shoots forward. */
+  lungeSeconds: 0.35,
+  lungeSpeed: 430,
+  /** Seconds after a lunge before the same shark can attack again. */
+  attackCooldownSeconds: 2.5,
+  /** Seconds of no sight while chasing before the shark gives up and goes
+   * back to patrol — hiding in kelp or breaking line of sight around a rock
+   * really does lose it. */
+  blindGiveUpSeconds: 1.5,
+};
+
+/** The diver's harpoon gun: Space fires toward the mouse cursor (or the way the
+ * diver faces when there is no cursor yet). A hit stuns the shark for a few
+ * seconds — it never kills, so the reef stays dangerous. Ammo is unlimited
+ * but the gun needs a short cooldown between shots. */
+export const HARPOON = {
+  speed: 520,
+  range: 420,
+  radius: 6,
+  cooldownSeconds: 1.5,
+  stunSeconds: 3,
 };
 
 /** A sonar camera on the seabed sweeps its cone back and forth; the ink burst switches it off for a while. */
@@ -148,9 +175,16 @@ export const PALETTE = {
   diver: '#ffb347',
   diverSneak: '#e89b3c',
   diverSuit: '#1c2b3a',
-  shark: '#8fa8bd',
+  shark: '#7d99ad',
+  sharkDark: '#5a7080',
   sharkBelly: '#cfe3ee',
-  sharkFin: '#5d7285',
+  sharkFin: '#4a5d6e',
+  sharkEye: '#ff3b30',
+  sharkEyeGlow: 'rgba(255, 59, 48, 0.5)',
+  sharkScar: 'rgba(220, 235, 245, 0.75)',
+  sharkTeeth: '#ffffff',
+  harpoon: '#d8dee6',
+  harpoonLine: 'rgba(216, 222, 230, 0.7)',
   sharkCone: 'rgba(126, 200, 255, 0.28)',
   sharkConeChase: 'rgba(255, 59, 48, 0.45)',
   sonar: '#ff5a4d',

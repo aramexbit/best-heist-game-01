@@ -7,17 +7,21 @@
 import { BEST_KEY, STEP } from './config.js';
 import {
   createWorld,
+  EVENT_ATTACK,
   EVENT_CAUGHT,
   EVENT_CLEAR,
+  EVENT_HARPOON,
+  EVENT_HARPOON_HIT,
   EVENT_INK,
   EVENT_LOCKDOWN,
   EVENT_LOOT,
   EVENT_OVER,
   EVENT_SPOTTED,
   EVENT_WIN,
+  EVENT_WINDUP,
 } from './world.js';
 import { createRandom } from './random.js';
-import { ACTION_CONFIRM, ACTION_INK, ACTION_MUTE, ACTION_PAUSE, createInput } from './input.js';
+import { ACTION_CONFIRM, ACTION_HARPOON, ACTION_INK, ACTION_MUTE, ACTION_PAUSE, createInput } from './input.js';
 import { audio } from './audio.js';
 import {
   createRenderer,
@@ -80,6 +84,10 @@ function handleEvents(events) {
   if (events & EVENT_CAUGHT) audio.caught();
   if (events & EVENT_LOCKDOWN) audio.lockdown();
   if (events & EVENT_INK) audio.ink();
+  if (events & EVENT_HARPOON) audio.harpoon();
+  if (events & EVENT_HARPOON_HIT) audio.harpoonHit();
+  if (events & EVENT_ATTACK) audio.attack();
+  if (events & EVENT_WINDUP) audio.windup();
   if (events & EVENT_CLEAR) {
     audio.clear();
     screen = { type: SCREEN_CLEAR, world };
@@ -137,11 +145,32 @@ function stepGame() {
     return;
   }
   const vector = input.vector(world.state.player.x, world.state.player.y);
+  // Space fires the harpoon toward the cursor; with no cursor yet (keyboard
+  // only) it flies the way the diver faces.
+  let fire = false;
+  let aimX;
+  let aimY;
+  if (actions & ACTION_HARPOON) {
+    const aim = input.aim();
+    const player = world.state.player;
+    if (aim) {
+      const field = toField(aim.x, aim.y);
+      aimX = field.x;
+      aimY = field.y;
+    } else {
+      aimX = player.x + player.dirX * 240;
+      aimY = player.y + player.dirY * 240;
+    }
+    fire = true;
+  }
   const events = world.step(STEP, {
     x: vector.x,
     y: vector.y,
     sneak: vector.sneak,
     ink: Boolean(actions & ACTION_INK),
+    fire,
+    aimX,
+    aimY,
   }, false);
   handleEvents(events);
 }

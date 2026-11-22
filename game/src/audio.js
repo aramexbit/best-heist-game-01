@@ -78,6 +78,27 @@ function createAudio() {
       tone(170, 0.16, 'sine', 0.1, 0.15);
       tone(120, 0.2, 'sine', 0.08, 0.26);
     },
+    harpoon() {
+      // A sharp twang: a high blip that drops fast, like a spear leaving the gun.
+      tone(880, 0.08, 'square', 0.08);
+      tone(440, 0.1, 'square', 0.06, 0.05);
+    },
+    harpoonHit() {
+      // A dull thunk plus a bubble burst when the spear finds the shark.
+      tone(180, 0.12, 'triangle', 0.12);
+      tone(520, 0.08, 'sine', 0.08, 0.06);
+      tone(780, 0.1, 'sine', 0.07, 0.12);
+    },
+    attack() {
+      // The bite: a low warning growl as the shark lunges, jaws open.
+      tone(140, 0.18, 'sawtooth', 0.12);
+      tone(98, 0.24, 'sawtooth', 0.12, 0.1);
+    },
+    windup() {
+      // The telegraph's audio cue: two quick rising blips as the shark rears.
+      tone(330, 0.08, 'square', 0.08);
+      tone(440, 0.1, 'square', 0.09, 0.09);
+    },
     clear() {
       tone(523, 0.12, 'sine', 0.12);
       tone(659, 0.12, 'sine', 0.12, 0.1);
