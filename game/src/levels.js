@@ -37,7 +37,7 @@ export const LEVELS = [
   {
     name: '1 · The Coral Reef',
     theme: 'reef',
-    hint: 'One shark, one sonar camera. Learn the cones, slow the shark with the harpoon (Space) if it spots you — but it will know where you are — take the pearl, then dive into the whirlpool.',
+    hint: 'Three sharks, one sonar camera. Learn the cones — one guards the pearl, one the middle, one the whirlpool — slow a shark with the harpoon (Space) if it spots you — but it will know where you are — take the pearl, then dive into the whirlpool.',
     timeLimit: 120,
     entry: { x: 64, y: 360 },
     exit: { x: 1172, y: 300, w: 64, h: 120 },
@@ -62,9 +62,10 @@ export const LEVELS = [
       rock(880, 420, 64, 48, 'rock'),
       // Winding pass: three wall chains that bend — L-hooks and a zigzag — so
       // the reef reads as switchback corridors, not straight lanes. Each chain
-      // ends in a boulder cap so no end looks cut off. The shark patrol lane
-      // (x 466-494), the sonar sight line to the pearl, the mid pillar and the
-      // kelp beds stay open; loot and the whirlpool stay reachable.
+      // ends in a boulder cap so no end looks cut off. The shark patrol lanes
+      // (x 466-494, the top sweep y 186-214, x 1026-1054), the sonar sight line
+      // to the pearl, the mid pillar and the kelp beds stay open; loot and the
+      // whirlpool stay reachable.
       rock(420, 156, 36, 110),
       rock(300, 230, 120, 36),
       rock(264, 224, 48, 44, 'rock'),
@@ -86,7 +87,13 @@ export const LEVELS = [
       { x: 980, y: 640, kind: 'coins' },
     ],
     sharks: [
+      // Three sharks now: the old mid-lane guard, a second one sweeping the
+      // top past the pearl, and a third guarding the whirlpool approach on
+      // the right. All three lanes are open water — no wall crosses them —
+      // and the patrols are spread across the reef instead of bunching up.
       { waypoints: [{ x: 480, y: 180 }, { x: 480, y: 540 }], speed: 70 },
+      { waypoints: [{ x: 560, y: 200 }, { x: 730, y: 200 }], speed: 70 },
+      { waypoints: [{ x: 1040, y: 180 }, { x: 1040, y: 540 }], speed: 70 },
     ],
     sonars: [
       { x: 640, y: 32, baseAngle: Math.PI / 2, arc: 0.5, period: 5, range: 240 },
@@ -95,7 +102,7 @@ export const LEVELS = [
   {
     name: '2 · The Shipwreck',
     theme: 'wreck',
-    hint: 'Two sharks cross the wreck and they bite now — dodge the wind-up, hide in the kelp, or slow one with the harpoon — but it will know where you are. The sapphire sits in the middle.',
+    hint: 'Four sharks cross the wreck and they bite now — dodge the wind-up, hide in the kelp, or slow one with the harpoon — but it will know where you are. The sapphire sits in the middle.',
     timeLimit: 120,
     entry: { x: 64, y: 360 },
     exit: { x: 1172, y: 300, w: 64, h: 120 },
@@ -122,8 +129,8 @@ export const LEVELS = [
       // Winding pass: three bending chains — an L-hook off the top block, an
       // S-hook off the bottom block, and a zigzag arm off the middle wall — so
       // the wreck's corridors switch back instead of running straight. The
-      // shark patrol lanes (x 386-414 and 866-894) stay open, as do the kelp
-      // beds and the loot.
+      // shark patrol lanes (x 386-414, x 866-894, the top sweep y 186-214 and
+      // the bottom sweep y 506-534) stay open, as do the kelp beds and the loot.
       rock(240, 140, 36, 110),
       rock(240, 214, 130, 36),
       rock(336, 208, 40, 40, 'rock'),
@@ -145,8 +152,13 @@ export const LEVELS = [
       { x: 1120, y: 600, kind: 'pearl' },
     ],
     sharks: [
+      // Four sharks now: the two old vertical guards, a third sweeping the
+      // top past the sapphire, and a fourth sweeping the bottom past the
+      // deep pearl by the whirlpool. All four lanes are open water.
       { waypoints: [{ x: 400, y: 180 }, { x: 400, y: 540 }], speed: 80 },
       { waypoints: [{ x: 880, y: 540 }, { x: 880, y: 180 }], speed: 80 },
+      { waypoints: [{ x: 600, y: 200 }, { x: 720, y: 200 }], speed: 80 },
+      { waypoints: [{ x: 1000, y: 520 }, { x: 1180, y: 520 }], speed: 80 },
     ],
     sonars: [
       { x: 520, y: 32, baseAngle: Math.PI / 2, arc: 0.5, period: 5, range: 240 },
@@ -156,7 +168,7 @@ export const LEVELS = [
   {
     name: '3 · The Deep Trench',
     theme: 'trench',
-    hint: 'Three sharks, three sonar cameras, one chest of gold. Ink the cameras, slow the sharks with the harpoon (each hit gives away your position), swim, and escape through the whirlpool.',
+    hint: 'Five sharks, three sonar cameras, one chest of gold. Ink the cameras, slow the sharks with the harpoon (each hit gives away your position), swim, and escape through the whirlpool.',
     timeLimit: 150,
     entry: { x: 64, y: 360 },
     exit: { x: 1172, y: 300, w: 64, h: 120 },
@@ -186,10 +198,11 @@ export const LEVELS = [
       rock(1080, 440, 64, 48, 'rock'),
       // Winding pass: four bending chains — a zigzag off the top block, an
       // S-hook between the middle wall and the bottom block, an arm off the
-      // right wall, and an L-hook off the bottom-right block. The three shark
-      // patrol lanes (x 346-374, 686-714, 1006-1034) stay open: the last chain
-      // leaves a 60px gap exactly where the right shark swims. Kelp, loot,
-      // the chest and the whirlpool stay reachable.
+      // right wall, and an L-hook off the bottom-right block. The five shark
+      // patrol lanes (x 346-374, 686-714, 1006-1034, x 826-854, the top sweep
+      // y 146-174) stay open: the last chain leaves a 60px gap exactly where
+      // the right shark swims. Kelp, loot, the chest and the whirlpool stay
+      // reachable.
       rock(300, 130, 36, 110),
       rock(190, 204, 110, 36),
       rock(154, 198, 48, 44, 'rock'),
@@ -215,9 +228,14 @@ export const LEVELS = [
       { x: 980, y: 120, kind: 'chest' },
     ],
     sharks: [
+      // Five sharks now: the three old vertical guards, a fourth in the
+      // corridor between the middle and right walls, and a fifth sweeping
+      // the top past the chest of gold. All five lanes are open water.
       { waypoints: [{ x: 360, y: 180 }, { x: 360, y: 540 }], speed: 90 },
       { waypoints: [{ x: 700, y: 540 }, { x: 700, y: 180 }], speed: 90 },
       { waypoints: [{ x: 1020, y: 180 }, { x: 1020, y: 540 }], speed: 90 },
+      { waypoints: [{ x: 840, y: 200 }, { x: 840, y: 540 }], speed: 90 },
+      { waypoints: [{ x: 900, y: 160 }, { x: 1010, y: 160 }], speed: 90 },
     ],
     sonars: [
       { x: 460, y: 32, baseAngle: Math.PI / 2, arc: 0.55, period: 5, range: 250 },

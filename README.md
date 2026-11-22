@@ -11,12 +11,13 @@ portal spinning at the far edge, waiting to carry the loot to another dimension.
 
 ## How it plays
 
-- **Dive in.** Swim past patrolling sharks and their sense cones, and the
-  sweeping sonar cameras hung on the walls. Stone-block walls block sight,
-  so use them as cover — and hide in the kelp beds, which sharks and sonar
-  cannot see through. The dashed patrol lines show where each shark swims,
-  so you can guess its next move. A minimap in the corner shows the whole
-  dive site — walls, kelp, treasure, sharks, sonar cameras and you.
+- **Dive in.** Swim past patrolling sharks and their sense cones — three on
+  the reef, four in the wreck, five in the trench — and the sweeping sonar
+  cameras hung on the walls. Stone-block walls block sight, so use them as
+  cover — and hide in the kelp beds, which sharks and sonar cannot see
+  through. The dashed patrol lines show where each shark swims, so you can
+  guess its next move. A minimap in the corner shows the whole dive site —
+  walls, kelp, treasure, sharks, sonar cameras and you.
 - **Steal.** Pocket the sunken treasure: gold coins ($100), pearls ($250),
   sapphires ($500), treasure chests ($1,000). The whirlpool only takes you with at least
   one piece aboard.
@@ -72,7 +73,7 @@ outside the grader).
 
 - `game/index.html` — the page; `game/src/main.js` — the loop and screens.
 - `game/src/world.js` — the rules: diver, sharks, sonar cameras, kelp, treasure, alarm, score. Sharks wind up and lunge when they spot you; the harpoon gun slows them but gives away your position.
-- `game/src/levels.js` — the three dive sites: stone-block walls, boulder clusters and pillars, bent into winding switchback corridors. `game/src/render.js` — all drawing, hand-drawn in canvas.
+- `game/src/levels.js` — the three dive sites: stone-block walls, boulder clusters and pillars, bent into winding switchback corridors, patrolled by 3 / 4 / 5 sharks. `game/src/render.js` — all drawing, hand-drawn in canvas.
 - `game/src/input.js` — keyboard + pointer (a click fires the harpoon at that spot; the HARPOON button fires toward the cursor or the way the diver faces). `game/src/audio.js` — WebAudio blips.
 - `game/src/shots.js` — the staged screenshot scenes (a cone-aware autopilot
   plays the game for real) and `shots.json` lists the four captures.

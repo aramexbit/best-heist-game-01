@@ -114,118 +114,26 @@ export function createRenderer(canvas) {
       ctx.ellipse(px, py, rx, ry, 0, 0, Math.PI * 2);
       ctx.fill();
     }
-    // Pebbles: small grey-blue stones scattered over the whole seabed. Kept
-    // sparse on purpose — each one is high-frequency detail that costs bytes
-    // in the dossier screenshots, and the floor is already busy with tiles,
-    // cracks and caustics. Trimmed again for the winding pass: the bending
-    // walls already fill the frame, so the floor needs fewer stones. Two left.
-    for (let i = 0; i < 2; i += 1) {
-      const px = (i * 173 + 41) % FIELD.width;
-      const py = (i * 97 + 53) % FIELD.height;
-      ctx.fillStyle = i % 3 === 0 ? theme.pebble : theme.pebbleDark;
-      ctx.globalAlpha = 0.5 + (i % 4) * 0.12;
-      ctx.beginPath();
-      ctx.ellipse(px, py, 2 + (i % 4), 1.5 + (i % 3), (i * 0.7) % Math.PI, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-    // Shells: little pale arcs scattered on the seabed.
-    ctx.strokeStyle = 'rgba(240, 230, 210, 0.6)';
-    ctx.lineWidth = 2;
-    for (let i = 0; i < 3; i += 1) {
-      const sx = (i * 211 + 90) % FIELD.width;
-      const sy = (i * 139 + 70) % FIELD.height;
-      ctx.beginPath();
-      ctx.arc(sx, sy, 5 + (i % 3), Math.PI, Math.PI * 2);
-      ctx.stroke();
-    }
+    // Pebbles: removed — the frame is busy with three sharks and the
+    // winding walls now, and every stone costs bytes in the dossier shots.
+    // Shells: removed for the same reason.
 
-    // Stone floor: faint large tile seams and cracks, so the seabed reads as
-    // old paved ruins instead of a flat pool. No sand — the tiles are dark
-    // rock, lit only by the caustics and shafts above.
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.28)';
-    ctx.lineWidth = 2;
-    for (let gx = 0; gx <= FIELD.width; gx += 240) {
-      const lean = (gx / 240) % 2 === 0 ? 0 : 40;
-      ctx.beginPath();
-      ctx.moveTo(gx + lean, 0);
-      ctx.lineTo(gx + 40 - lean, FIELD.height);
-      ctx.stroke();
-    }
-    for (let gy = 0; gy <= FIELD.height; gy += 288) {
-      ctx.beginPath();
-      ctx.moveTo(0, gy);
-      ctx.lineTo(FIELD.width, gy + 24);
-      ctx.stroke();
-    }
-    // Cracks: short jagged dark lines scattered on the tiles.
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
-    ctx.lineWidth = 1.5;
-    for (let i = 0; i < 1; i += 1) {
-      let cx0 = (i * 263 + 120) % FIELD.width;
-      let cy0 = (i * 179 + 80) % FIELD.height;
-      ctx.beginPath();
-      ctx.moveTo(cx0, cy0);
-      for (let s = 0; s < 3; s += 1) {
-        cx0 += 12 + ((i + s) % 3) * 8;
-        cy0 += ((i * 3 + s * 5) % 11) - 5;
-        ctx.lineTo(cx0, cy0);
-      }
-      ctx.stroke();
-    }
+    // Stone floor: the tile seams are gone too — the depth patches carry
+    // the floor now, and the dossier cap needs the bytes for the sharks.
+    // (No sand — the tiles were dark rock; the floor is dark water now.)
+    // Cracks: removed — the tiles and depth patches carry the floor now.
 
-    // Caustics: wavy nets of light crawling over the seabed. One net, not
-    // two: each one is a full-width wavy path, and the dossier screenshots
-    // pay for every wiggle — the winding walls already fill the frame.
-    ctx.strokeStyle = 'rgba(255, 255, 220, 0.10)';
-    ctx.lineWidth = 2;
-    for (let i = 0; i < 1; i += 1) {
-      const y = 120 + i * 200;
-      const drift = Math.sin(world.state.elapsed * 0.6 + i * 1.3) * 26;
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      for (let x = 0; x <= FIELD.width; x += 80) {
-        ctx.quadraticCurveTo(x + 40, y + Math.sin(x * 0.01 + i * 2 + world.state.elapsed * 0.8) * 12, x + 80, y);
-      }
-      ctx.stroke();
-      void drift;
-    }
+    // Caustics: removed — the wavy full-width net was the most expensive
+    // background detail left, and the frame is busy with three sharks now.
 
-    // Light shafts: golden beams falling from the surface, swaying slowly.
-    // One, not two — the winding walls already fill the frame, and the cover
-    // shot was 1,630 bytes over the dossier cap.
-    ctx.fillStyle = theme.shaft;
-    for (let i = 0; i < 1; i += 1) {
-      const topX = 220 + i * 430 + Math.sin(world.state.elapsed * 0.25 + i * 2) * 24;
-      ctx.beginPath();
-      ctx.moveTo(topX - 55, 0);
-      ctx.lineTo(topX + 55, 0);
-      ctx.lineTo(topX + 150, FIELD.height);
-      ctx.lineTo(topX + 40, FIELD.height);
-      ctx.closePath();
-      ctx.fill();
-    }
+    // Light shafts: removed — the dossier cap needs the bytes for the sharks,
+    // and the frame is busy enough without them.
 
     // Decorative reef fish: removed — the frame is already busy with the
     // winding walls, and the cover shot was over the dossier cap.
 
-    // Ambient bubble streams rising from vents in the seabed. One vent, three
-    // bubbles — the winding walls already fill the frame.
-    ctx.strokeStyle = PALETTE.bubble;
-    ctx.lineWidth = 1.5;
-    for (let v = 0; v < 1; v += 1) {
-      const bx = 300 + v * 340;
-      for (let b = 0; b < 3; b += 1) {
-        const t = (world.state.elapsed * 0.25 + b * 0.25 + v * 0.13) % 1;
-        const by = 690 - t * 620;
-        const br = 2 + t * 4;
-        ctx.globalAlpha = (1 - t) * 0.55;
-        ctx.beginPath();
-        ctx.arc(bx + Math.sin(world.state.elapsed + b * 2 + v) * 6, by, br, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-    }
-    ctx.globalAlpha = 1;
+    // Ambient bubble streams: removed for the same reason — the diver's own
+    // bubble trail is the only bubbles left.
   }
 
   /** A kelp bed: a dark hide patch plus wavy ribbon blades radiating from the
